@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -1493,7 +1493,16 @@ export default function InvoicesPage() {
       }
 
 
-      <div className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+      <div
+        className="rounded-[24px] border border-slate-200 bg-white shadow-sm"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.965), rgba(255,255,255,0.965)), url('/djallows-logo.png')",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center 48%",
+          backgroundSize: "420px auto",
+        }}
+      >
 
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
@@ -2467,3 +2476,4 @@ export default function InvoicesPage() {
 
   );
 }
+
