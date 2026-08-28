@@ -2891,7 +2891,13 @@ const isOwnerOrAdmin =
           className="mt-5"
         >
 
-          <div className="grid gap-5 md:grid-cols-3">
+          <div
+            className={
+              isDirectReceipt
+                ? "grid gap-5 md:grid-cols-2"
+                : "grid gap-5 md:grid-cols-3"
+            }
+          >
 
             <div>
 
@@ -2995,37 +3001,39 @@ const isOwnerOrAdmin =
 
             </div>
 
-            <div>
+            {!isDirectReceipt && (
+              <div>
 
-              <Label>
-                Due Date
-              </Label>
+                <Label>
+                  Due Date
+                </Label>
 
-              <input
-                type="date"
-                min={
-                  invoiceDate
-                }
-                value={
-                  dueDate
-                }
-                onChange={(
-                  event
-                ) =>
-                  setDueDate(
-                    event.target.value
-                  )
-                }
-                className={
-                  inputClass
-                }
-              />
+                <input
+                  type="date"
+                  min={
+                    invoiceDate
+                  }
+                  value={
+                    dueDate
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDueDate(
+                      event.target.value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                />
 
-              <p className="mt-2 text-[12px] text-slate-500">
-                Optional
-              </p>
+                <p className="mt-2 text-[12px] text-slate-500">
+                  Optional
+                </p>
 
-            </div>
+              </div>
+            )}
 
           </div>
 
@@ -4080,7 +4088,9 @@ const isOwnerOrAdmin =
             >
 
               <p className="mb-5 text-[14px] text-slate-600">
-                Optional. Leave the amount at 0 if the customer has not paid yet.
+                {isDirectReceipt
+                  ? "The full sale amount will be recorded as received. Select where the payment was received."
+                  : "Optional. Leave the amount at 0 if the customer has not paid yet."}
               </p>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -4442,5 +4452,6 @@ function SummaryRow({
     </div>
   );
 }
+
 
 
