@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -3377,7 +3377,7 @@ const isOwnerOrAdmin =
                                       stock.breed_type,
                                     ]
                                       .filter(Boolean)
-                                      .join(" Ãƒâ€šÃ‚Â· ");
+                                      .join(" ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ");
 
                                   return (
                                     <option
@@ -3395,10 +3395,10 @@ const isOwnerOrAdmin =
                                         stock.stock_number
                                       }
                                       {details
-                                        ? ` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${details}`
+                                        ? ` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ${details}`
                                         : ""}
                                       {alreadySelected
-                                        ? " ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â already selected"
+                                        ? " ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â already selected"
                                         : ""}
                                     </option>
                                   );
@@ -3580,6 +3580,7 @@ const isOwnerOrAdmin =
                           ) : (
                             <input
                               type="number"
+                              onWheel={(event) => event.currentTarget.blur()}
                               min="0"
                               value={
                                 row.ageMonths
@@ -3616,6 +3617,7 @@ const isOwnerOrAdmin =
 
                             <input
                               type="number"
+                              onWheel={(event) => event.currentTarget.blur()}
                               min="0"
                               step="0.01"
                               value={
@@ -3990,6 +3992,7 @@ const isOwnerOrAdmin =
 
                 <input
                   type="number"
+                              onWheel={(event) => event.currentTarget.blur()}
                   min="0"
                   step="0.01"
                   value={
@@ -4372,6 +4375,11 @@ function Field({
             : undefined
         }
         value={value}
+        onWheel={(event) => {
+          if (type === "number") {
+            event.currentTarget.blur();
+          }
+        }}
         onChange={(
           event
         ) =>
@@ -4434,3 +4442,5 @@ function SummaryRow({
     </div>
   );
 }
+
+
