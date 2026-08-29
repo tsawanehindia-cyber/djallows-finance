@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import AppNotification from "@/components/AppNotification";
+import BusinessSignatureSettings from "@/components/BusinessSignatureSettings";
 import FinancePageShell from "@/components/FinancePageShell";
 import { supabase } from "@/lib/supabase";
 
@@ -634,6 +635,12 @@ export default function SettingsPage() {
         </div>
       </section>
 
+            {/* ======================================================
+          OFFICIAL DOCUMENT SIGNATURE
+      ====================================================== */}
+
+      <BusinessSignatureSettings businessId={businessId} />
+
       {/* ======================================================
           USERS & ACCESS
       ====================================================== */}
@@ -984,3 +991,4 @@ function CategoryRow({
     </div>
   );
 }
+
