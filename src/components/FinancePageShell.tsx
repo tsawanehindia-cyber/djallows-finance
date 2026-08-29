@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -135,6 +135,18 @@ const navigationItems: NavigationItem[] = [
       />
     ),
     href: "/invoices",
+  },
+
+  {
+    label:
+      "Consultation & Advisory",
+    shortLabel: "Advisory",
+    icon: (
+      <FileText
+        size={21}
+      />
+    ),
+    href: "/consultations",
   },
 
   {
@@ -1089,9 +1101,9 @@ export default function FinancePageShell({
                   <span className="font-black text-[#0b6b47]">
                     DJALLOWS FARM
                   </span>
-                  {" · © "}
+                  {" | Copyright "}
                   {new Date().getFullYear()}
-                  {" · Tujereng, The Gambia"}
+                  {" | Tujereng, The Gambia"}
                 </p>
 
                 {/* TABLET / DESKTOP FOOTER */}
@@ -1100,13 +1112,13 @@ export default function FinancePageShell({
                     <span className="font-black text-[#0b6b47]">
                       DJALLOWS FARM
                     </span>
-                    {" · "}
+                    {" | "}
                     Success Through Sheep Farming
                   </p>
 
                   <p>
-                    © {new Date().getFullYear()}
-                    {" · "}
+                    Copyright {new Date().getFullYear()}
+                    {" | "}
                     Tujereng, The Gambia
                   </p>
                 </div>
@@ -1486,3 +1498,4 @@ function SidebarFooter({
     </div>
   );
 }
+
