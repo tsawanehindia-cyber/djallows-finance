@@ -2,7 +2,6 @@
 
 import { createPortal } from "react-dom";
 
-import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -33,6 +32,10 @@ import {
 } from "lucide-react";
 
 import FinancePageShell from "@/components/FinancePageShell";
+import DocumentLetterhead, {
+  DocumentFooter,
+  DocumentSignatureBlock,
+} from "@/components/DocumentLetterhead";
 import { supabase } from "@/lib/supabase";
 
 // ============================================================
@@ -2719,57 +2722,10 @@ function DocumentHeader({
   number: string;
 }) {
   return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-
-      <div className="flex items-center gap-4">
-
-        <div className="flex h-[68px] w-[68px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-2">
-
-          <Image
-            src="/djallows-logo.png"
-            alt="Djallows Farm"
-            width={60}
-            height={60}
-            className="h-full w-full object-contain"
-          />
-
-        </div>
-
-        <div>
-
-          <p className="text-[23px] font-black text-[#0b5136]">
-            Djallows Farm
-          </p>
-
-          <p className="mt-1 text-[13px] font-bold italic text-emerald-700">
-            Success Through Sheep Farming
-          </p>
-
-          <p className="mt-2 text-[13px] font-medium text-slate-600">
-            Tujereng, The Gambia
-          </p>
-
-          <p className="text-[13px] font-medium text-slate-600">
-            Tel: +220 789 3464
-          </p>
-
-        </div>
-
-      </div>
-
-      <div className="sm:text-right">
-
-        <p className="text-[25px] font-black tracking-[0.08em] text-slate-950">
-          {title}
-        </p>
-
-        <p className="mt-2 text-[14px] font-black text-[#0b5136]">
-          {number}
-        </p>
-
-      </div>
-
-    </div>
+    <DocumentLetterhead
+      documentTitle={title}
+      documentNumber={number}
+    />
   );
 }
 
@@ -2863,1897 +2819,516 @@ function PrintableInvoice({
   customer: CustomerRow | null;
   items: InvoiceItem[];
 }) {
-
   const statusText =
-    invoice.status ===
-    "part_paid"
-
+    invoice.status === "part_paid"
       ? "PART PAID"
-
       : invoice.status.toUpperCase();
 
-
-  const statusClass =
-    invoice.status ===
-    "paid"
-
-      ? "paid"
-
-      : invoice.status ===
-        "part_paid"
-
-        ? "part-paid"
-
-        : "unpaid";
-
-
   const typeLabel =
-    invoice.invoice_type ===
-    "sheep_sale"
-
+    invoice.invoice_type === "sheep_sale"
       ? "Sheep Sale"
-
-      : invoice.invoice_type ===
-        "product_sale"
-
+      : invoice.invoice_type === "product_sale"
         ? "Farm Product Sale"
-
-        : invoice.invoice_type ===
-          "service"
-
+        : invoice.invoice_type === "service"
           ? "Consultancy / Service"
-
           : "Other";
 
+  function cleanDescription(description: string) {
+    const match = description.match(
+      /^(.*?)\s*-\s*Tag\s+(.+)$/i
+    );
 
-  function cleanDescription(
-    description: string
-  ) {
-
-    const match =
-      description.match(
-        /^(.*?)\s*-\s*Tag\s+(.+)$/i
-      );
-
-
-    if (
-      match
-    ) {
-
+    if (match) {
       return {
-        title:
-          match[1].trim(),
-
-        meta:
-          "Tag: " +
-          match[2].trim(),
+        title: match[1].trim(),
+        meta: "Tag: " + match[2].trim(),
       };
     }
 
-
     return {
-      title:
-        description,
-
-      meta:
-        "",
+      title: description,
+      meta: "",
     };
   }
 
-
   return (
-
     <>
-
       <style>{`
-
         .invoice-print-document {
-
-            width:
-              190mm !important;
-
-            max-width:
-              190mm !important;
-
-            min-height:
-              0 !important;
-
-            height:
-              auto !important;
-
-            margin:
-              0 auto !important;
-
-            padding:
-              0 !important;
-
-            overflow:
-              visible !important;
-
-            border:
-              none !important;
-
-            box-shadow:
-              none !important;
-
-            page-break-after:
-              auto !important;
-
-            break-after:
-              auto !important;
-
-          }
-
-
-          .invoice-print-table
-          thead {
-
-            display:
-              table-header-group !important;
-
-          }
-
-
-          .invoice-print-table
-          tbody
-          tr {
-
-            page-break-inside:
-              avoid !important;
-
-            break-inside:
-              avoid !important;
-
-          }
-
-
-          .invoice-no-break {
-
-            page-break-inside:
-              avoid !important;
-
-            break-inside:
-              avoid !important;
-
-          }
-
-
-          .invoice-print-document,
-          .invoice-print-document * {
-
-            -webkit-print-color-adjust:
-              exact !important;
-
-            print-color-adjust:
-              exact !important;
-
-          }
-
+          position: relative;
+          box-sizing: border-box;
+          width: min(190mm, 100%);
+          min-height: 274mm;
+          margin: 0 auto;
+          overflow: hidden;
+          background: #ffffff;
+          color: #182333;
+          font-family: Arial, Helvetica, sans-serif;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
-
-
-        .invoice-print-document {
-
-          position:
-            relative;
-
-          box-sizing:
-            border-box;
-
-          width:
-            min(
-              190mm,
-              100%
-            );
-
-          margin:
-            0 auto;
-
-          overflow:
-            hidden;
-
-          background:
-            #ffffff;
-
-          color:
-            #142033;
-
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-
-          -webkit-print-color-adjust:
-            exact;
-
-          print-color-adjust:
-            exact;
-
-        }
-
 
         .invoice-watermark {
-
-          position:
-            absolute;
-
-          top:
-            47%;
-
-          left:
-            50%;
-
-          width:
-            105mm;
-
-          height:
-            105mm;
-
-          transform:
-            translate(
-              -50%,
-              -50%
-            );
-
-          background-image:
-            url('/djallows-logo.png');
-
-          background-repeat:
-            no-repeat;
-
-          background-position:
-            center;
-
-          background-size:
-            contain;
-
-          opacity:
-            0.035;
-
-          pointer-events:
-            none;
-
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          background-image: url('/djallows-logo.png');
+          background-repeat: no-repeat;
+          background-position: center 47%;
+          background-size: 105mm;
+          opacity: 0.028;
         }
-
 
         .invoice-body {
-
-          position:
-            relative;
-
-          z-index:
-            2;
-
-          padding:
-            7mm
-            7mm
-            4mm;
-
-        }
-
-
-        .invoice-header {
-
-          display:
-            grid;
-
-          grid-template-columns:
-            1.2fr
-            0.8fr;
-
-          gap:
-            8mm;
-
-          align-items:
-            start;
-
-        }
-
-
-        .invoice-brand {
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            5mm;
-
-        }
-
-
-        .invoice-logo-image {
-          display: block;
-          width: 28mm;
-          height: 28mm;
-          flex: 0 0 auto;
-          object-fit: contain;
-        }
-
-
-        .invoice-brand-copy {
-
-          padding-left:
-            5mm;
-
-          border-left:
-            1mm solid
-            #16488f;
-
-        }
-
-
-        .invoice-brand-copy h1 {
-
-          margin:
-            0;
-
-          color:
-            #16488f;
-
-          font-size:
-            19pt;
-
-          font-weight:
-            900;
-
-          line-height:
-            1;
-
-        }
-
-
-        .invoice-brand-copy .tagline {
-
-          margin:
-            2mm 0 0;
-
-          color:
-            #2c963f;
-
-          font-size:
-            9pt;
-
-          font-style:
-            italic;
-
-          font-weight:
-            700;
-
-        }
-
-
-        .invoice-contact {
-
-          display:
-            grid;
-
-          gap:
-            1mm;
-
-          margin-top:
-            4mm;
-
-          color:
-            #5a6676;
-
-          font-size:
-            8pt;
-
-        }
-
-
-        .invoice-heading {
-
-          text-align:
-            right;
-
-        }
-
-
-        .invoice-heading h2 {
-
-          margin:
-            0;
-
-          color:
-            #16488f;
-
-          font-size:
-            30pt;
-
-          font-weight:
-            900;
-
-          line-height:
-            1;
-
-          letter-spacing:
-            0.5px;
-
-        }
-
-
-        .invoice-heading small {
-
-          display:
-            block;
-
-          margin-top:
-            3mm;
-
-          color:
-            #6b7788;
-
-          font-size:
-            8pt;
-
-          font-weight:
-            700;
-
-        }
-
-
-        .invoice-number {
-
-          display:
-            inline-block;
-
-          margin-top:
-            1.5mm;
-
-          padding:
-            2.7mm
-            5mm;
-
-          border-radius:
-            3mm;
-
-          background:
-            #16488f;
-
-          color:
-            #ffffff;
-
-          font-size:
-            10pt;
-
-          font-weight:
-            900;
-
-        }
-
-
-        .invoice-status {
-
-          display:
-            inline-block;
-
-          margin-top:
-            2.5mm;
-
-          padding:
-            1.7mm
-            6mm;
-
-          border-radius:
-            2mm;
-
-          font-size:
-            8pt;
-
-          font-weight:
-            900;
-
-          letter-spacing:
-            0.7px;
-
-        }
-
-
-        .invoice-status.unpaid {
-
-          background:
-            #fee2e2;
-
-          color:
-            #b91c1c;
-
-        }
-
-
-        .invoice-status.part-paid {
-
-          background:
-            #fef3c7;
-
-          color:
-            #92400e;
-
-        }
-
-
-        .invoice-status.paid {
-
-          background:
-            #dcfce7;
-
-          color:
-            #087234;
-
-        }
-
-
-        .invoice-divider {
-
-          display:
-            grid;
-
-          grid-template-columns:
-            1fr
-            1fr;
-
-          gap:
-            3mm;
-
-          margin-top:
-            6mm;
-
-        }
-
-
-        .invoice-divider div {
-
-          height:
-            1.6mm;
-
-          border-radius:
-            999px;
-
-        }
-
-
-        .invoice-divider .blue {
-
-          background:
-            #16488f;
-
-        }
-
-
-        .invoice-divider .green {
-
-          background:
-            #2c963f;
-
-        }
-
-
-        .invoice-info-grid {
-
-          display:
-            grid;
-
-          grid-template-columns:
-            1fr
-            1fr;
-
-          gap:
-            5mm;
-
-          margin-top:
-            6mm;
-
-        }
-
-
-        .invoice-card {
-
-          min-height:
-            35mm;
-
-          padding:
-            5mm;
-
-          border:
-            1px solid
-            #bcc9db;
-
-          border-radius:
-            4mm;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.96
-            );
-
+          position: relative;
+          z-index: 2;
+          box-sizing: border-box;
+          display: flex;
+          min-height: 274mm;
+          flex-direction: column;
+          padding: 9mm 10mm 7mm;
         }
-
 
-        .invoice-card-title {
-
-          margin:
-            0;
-
-          color:
-            #16488f;
-
-          font-size:
-            9pt;
-
-          font-weight:
-            900;
-
-          letter-spacing:
-            0.4px;
-
+        .pro-invoice-divider {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 3mm;
+          margin-top: 5mm;
         }
 
-
-        .invoice-card-line {
-
-          width:
-            30mm;
-
-          height:
-            0.5mm;
-
-          margin-top:
-            1.8mm;
-
-          background:
-            #16488f;
-
+        .pro-invoice-divider span {
+          height: 1.2mm;
+          border-radius: 999px;
         }
-
 
-        .bill-name {
-
-          margin-top:
-            4mm;
-
-          font-size:
-            12pt;
-
-          font-weight:
-            900;
-
+        .pro-invoice-divider .blue {
+          background: #17488f;
         }
-
-
-        .bill-meta {
 
-          display:
-            grid;
-
-          gap:
-            1.7mm;
-
-          margin-top:
-            2.5mm;
-
-          color:
-            #536174;
-
-          font-size:
-            8.5pt;
-
+        .pro-invoice-divider .green {
+          background: #2d9b45;
         }
-
-
-        .invoice-detail-list {
 
-          display:
-            grid;
-
-          margin:
-            3mm 0 0;
-
-          font-size:
-            8.5pt;
-
+        .pro-invoice-info {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 5mm;
+          margin-top: 6mm;
         }
-
-
-        .invoice-detail-list div {
-
-          display:
-            grid;
 
-          grid-template-columns:
-            1fr
-            auto;
-
-          gap:
-            5mm;
-
-          padding:
-            1.9mm 0;
-
-          border-bottom:
-            1px dashed
-            #cbd5e1;
-
+        .pro-invoice-panel {
+          min-height: 34mm;
+          padding: 4.5mm 5mm;
+          border: 1px solid #cbd6e4;
+          border-top: 1.2mm solid #17488f;
+          border-radius: 2.5mm;
+          background: rgba(255, 255, 255, 0.97);
         }
-
-
-        .invoice-detail-list span {
-
-          color:
-            #687587;
 
+        .pro-invoice-label {
+          margin: 0;
+          color: #17488f;
+          font-size: 7.5pt;
+          font-weight: 900;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
         }
 
-
-        .invoice-detail-list strong {
-
-          text-align:
-            right;
-
+        .pro-invoice-customer {
+          margin: 3.5mm 0 0;
+          color: #16243a;
+          font-size: 12pt;
+          font-weight: 900;
         }
-
-
-        .invoice-table-wrap {
-
-          margin-top:
-            6mm;
 
+        .pro-invoice-meta {
+          display: grid;
+          gap: 1.5mm;
+          margin-top: 3mm;
+          color: #556274;
+          font-size: 8.3pt;
         }
-
-
-        .invoice-print-table {
-
-          width:
-            100%;
-
-          border-collapse:
-            separate;
-
-          border-spacing:
-            0;
-
-          overflow:
-            hidden;
 
-          border:
-            1px solid
-            #bcc9db;
-
-          border-radius:
-            3mm;
-
-          table-layout:
-            fixed;
-
-          font-size:
-            8.2pt;
-
+        .pro-invoice-facts {
+          display: grid;
+          margin: 2.5mm 0 0;
+          font-size: 8.2pt;
         }
-
-
-        .invoice-print-table thead {
 
-          background:
-            #16488f;
-
-          color:
-            #ffffff;
-
+        .pro-invoice-facts div {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 4mm;
+          padding: 1.7mm 0;
+          border-bottom: 1px dotted #d4dde8;
         }
-
-
-        .invoice-print-table th {
-
-          padding:
-            3mm
-            2.5mm;
-
-          border-right:
-            1px solid
-            rgba(
-              255,
-              255,
-              255,
-              0.25
-            );
-
-          text-align:
-            left;
 
-          font-weight:
-            800;
-
+        .pro-invoice-facts div:last-child {
+          border-bottom: none;
         }
-
-
-        .invoice-print-table th:last-child {
 
-          border-right:
-            none;
-
+        .pro-invoice-facts span {
+          color: #667386;
         }
-
-
-        .invoice-print-table td {
 
-          padding:
-            3.2mm
-            2.5mm;
-
-          border-top:
-            1px solid
-            #dbe3ed;
-
-          border-right:
-            1px solid
-            #dbe3ed;
-
-          vertical-align:
-            top;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.96
-            );
-
+        .pro-invoice-facts strong {
+          text-align: right;
         }
-
 
-        .invoice-print-table td:last-child {
-
-          border-right:
-            none;
-
+        .pro-status {
+          display: inline-block;
+          padding: 1mm 2mm;
+          border-radius: 999px;
+          background: #eef4fb;
+          color: #17488f;
+          font-size: 7pt;
+          font-weight: 900;
+          letter-spacing: 0.4px;
         }
-
 
-        .invoice-description {
-
-          width:
-            40%;
-
+        .pro-invoice-table-wrap {
+          margin-top: 6mm;
         }
-
 
-        .invoice-qty {
-
-          width:
-            10%;
-
-          text-align:
-            center !important;
-
+        .pro-invoice-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          overflow: hidden;
+          border: 1px solid #cbd6e4;
+          border-radius: 2.5mm;
+          table-layout: fixed;
+          font-size: 8.3pt;
         }
-
-
-        .invoice-unit {
-
-          width:
-            12%;
-
-          text-align:
-            center !important;
 
+        .pro-invoice-table thead {
+          background: #17488f;
+          color: #ffffff;
         }
 
-
-        .invoice-price {
-
-          width:
-            18%;
-
-          text-align:
-            right !important;
-
+        .pro-invoice-table th {
+          padding: 3mm 2.6mm;
+          border-right: 1px solid rgba(255, 255, 255, 0.2);
+          text-align: left;
+          font-weight: 800;
         }
-
-
-        .invoice-amount {
 
-          width:
-            20%;
-
-          text-align:
-            right !important;
-
+        .pro-invoice-table th:last-child,
+        .pro-invoice-table td:last-child {
+          border-right: none;
         }
-
-
-        .invoice-line-title {
-
-          font-weight:
-            800;
-
-          color:
-            #17243a;
 
+        .pro-invoice-table td {
+          padding: 3.2mm 2.6mm;
+          border-top: 1px solid #dbe3ed;
+          border-right: 1px solid #dbe3ed;
+          background: rgba(255, 255, 255, 0.97);
+          vertical-align: top;
         }
 
-
-        .invoice-line-meta {
-
-          margin-top:
-            1mm;
-
-          color:
-            #6b7788;
-
-          font-size:
-            7.5pt;
-
+        .pro-desc {
+          width: 42%;
         }
-
 
-        .invoice-center {
-
-          text-align:
-            center;
-
+        .pro-qty {
+          width: 9%;
+          text-align: center !important;
         }
-
 
-        .invoice-right {
-
-          text-align:
-            right;
-
-          white-space:
-            nowrap;
-
+        .pro-unit {
+          width: 12%;
+          text-align: center !important;
         }
-
 
-        .invoice-bottom {
-
-          display:
-            grid;
-
-          grid-template-columns:
-            1fr
-            0.95fr;
-
-          gap:
-            5mm;
-
-          margin-top:
-            6mm;
-
-          align-items:
-            stretch;
-
+        .pro-price {
+          width: 17%;
+          text-align: right !important;
         }
-
-
-        .invoice-note {
-
-          min-height:
-            44mm;
-
-          padding:
-            5mm;
-
-          border:
-            1px solid
-            #9fc892;
-
-          border-radius:
-            4mm;
 
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.96
-            );
-
+        .pro-amount {
+          width: 20%;
+          text-align: right !important;
         }
-
-
-        .invoice-note h3 {
-
-          margin:
-            0;
-
-          color:
-            #2c963f;
-
-          font-size:
-            9pt;
 
-          font-weight:
-            900;
-
+        .pro-line-title {
+          color: #1f2e44;
+          font-weight: 800;
+          line-height: 1.35;
         }
-
-
-        .invoice-note-line {
-
-          width:
-            28mm;
-
-          height:
-            0.5mm;
-
-          margin-top:
-            1.8mm;
-
-          background:
-            #2c963f;
 
+        .pro-line-meta {
+          margin-top: 1mm;
+          color: #64748b;
+          font-size: 7.5pt;
         }
 
-
-        .invoice-note p {
-
-          margin:
-            5mm 0 0;
-
-          color:
-            #536174;
-
-          font-size:
-            8.5pt;
-
-          line-height:
-            1.5;
-
-          white-space:
-            pre-wrap;
-
+        .pro-center {
+          text-align: center;
         }
-
-
-        .invoice-totals {
-
-          overflow:
-            hidden;
-
-          border:
-            1px solid
-            #bcc9db;
-
-          border-radius:
-            4mm;
 
-          background:
-            #ffffff;
-
+        .pro-right {
+          text-align: right;
+          white-space: nowrap;
         }
-
-
-        .invoice-total-lines {
 
-          padding:
-            4.5mm
-            5mm;
-
-          font-size:
-            8.5pt;
-
+        .pro-invoice-summary {
+          display: grid;
+          grid-template-columns: 1.05fr 0.95fr;
+          gap: 5mm;
+          margin-top: 7mm;
+          align-items: stretch;
         }
-
 
-        .invoice-total-lines div {
-
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-
-          gap:
-            4mm;
-
-          padding:
-            2mm 0;
-
-          border-bottom:
-            1px dashed
-            #cbd5e1;
-
+        .pro-invoice-note {
+          padding: 5mm;
+          border: 1px solid #b7d7bd;
+          border-left: 1.4mm solid #2d9b45;
+          border-radius: 2.5mm;
+          background: #fbfefb;
         }
-
 
-        .invoice-total-lines .invoice-grand-total {
-
-          margin-top:
-            1mm;
-
-          padding-top:
-            3mm;
-
-          color:
-            #16488f;
-
-          font-size:
-            10.5pt;
-
-          font-weight:
-            900;
-
-          border-bottom:
-            1px solid
-            #16488f;
-
+        .pro-invoice-note h3 {
+          margin: 0;
+          color: #2d8740;
+          font-size: 7.5pt;
+          font-weight: 900;
+          letter-spacing: 0.8px;
         }
-
-
-        .invoice-balance {
-
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-
-          align-items:
-            center;
 
-          padding:
-            4mm
-            5mm;
-
-          background:
-            #16488f;
-
-          color:
-            #ffffff;
-
-          font-size:
-            10pt;
-
-          font-weight:
-            900;
-
+        .pro-invoice-note p {
+          margin: 3mm 0 0;
+          color: #556274;
+          font-size: 8.3pt;
+          line-height: 1.5;
+          white-space: pre-wrap;
         }
-
-
-        .invoice-thank-you {
-
-          margin-top:
-            7mm;
-
-          text-align:
-            center;
-
-          color:
-            #16488f;
-
-          font-size:
-            9pt;
-
-          font-weight:
-            900;
-
-          letter-spacing:
-            1.8px;
 
+        .pro-invoice-totals {
+          overflow: hidden;
+          border: 1px solid #cbd6e4;
+          border-radius: 2.5mm;
+          background: #ffffff;
         }
 
-
-        .invoice-watermark-row {
-
-          display:
-            grid;
-
-          grid-template-columns:
-            1fr
-            18mm
-            1fr;
-
-          align-items:
-            center;
-
-          gap:
-            4mm;
-
-          width:
-            68%;
-
-          margin:
-            3mm auto 0;
-
+        .pro-total-lines {
+          padding: 4mm 5mm;
+          font-size: 8.5pt;
         }
-
-
-        .invoice-watermark-row span {
-
-          height:
-            0.4mm;
-
-          background:
-            #2c963f;
 
+        .pro-total-lines > div {
+          display: flex;
+          justify-content: space-between;
+          gap: 4mm;
+          padding: 1.9mm 0;
+          border-bottom: 1px dotted #d5dee9;
         }
 
-
-        .invoice-small-logo {
-
-          width:
-            18mm;
-
-          height:
-            18mm;
-
-          background-image:
-            url('/djallows-logo.png');
-
-          background-repeat:
-            no-repeat;
-
-          background-position:
-            center;
-
-          background-size:
-            contain;
-
-          opacity:
-            0.14;
-
+        .pro-total-lines .grand-total {
+          margin-top: 0.8mm;
+          padding-top: 2.6mm;
+          color: #17488f;
+          font-size: 10pt;
+          font-weight: 900;
+          border-bottom: 1px solid #aac0dc;
         }
-
-
-        .invoice-footer-info {
-
-          display:
-            flex;
-
-          justify-content:
-            space-between;
 
-          gap:
-            5mm;
-
-          margin-top:
-            5mm;
-
-          color:
-            #425168;
-
-          font-size:
-            7pt;
-
-          font-weight:
-            700;
-
+        .pro-balance {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 3.5mm 5mm;
+          background: #17488f;
+          color: #ffffff;
+          font-size: 9.5pt;
+          font-weight: 900;
         }
-
 
-        .invoice-footer-wave {
-
-          position:
-            relative;
-
-          height:
-            13mm;
-
-          margin-top:
-            3mm;
-
-          overflow:
-            hidden;
-
+        .pro-invoice-closing {
+          margin-top: auto;
+          padding-top: 12mm;
         }
-
-
-        .invoice-footer-green {
 
-          position:
-            absolute;
-
-          right:
-            53%;
-
-          bottom:
-            -9mm;
-
-          left:
-            -7%;
-
-          height:
-            16mm;
-
-          border-radius:
-            50%;
-
-          background:
-            #2c963f;
-
+        .pro-invoice-footer {
+          margin-top: 9mm;
         }
-
-
-        .invoice-footer-blue {
 
-          position:
-            absolute;
+        @media print {
+          body > .print-document-root .invoice-print-document {
+            width: 190mm !important;
+            max-width: 190mm !important;
+            min-height: 274mm !important;
+            margin: 0 auto !important;
+            overflow: visible !important;
+            border: 0 !important;
+            box-shadow: none !important;
+          }
 
-          right:
-            -7%;
+          body > .print-document-root .invoice-body {
+            min-height: 274mm !important;
+            padding: 5mm 6mm 4mm !important;
+          }
 
-          bottom:
-            -8mm;
+          body > .print-document-root .pro-invoice-info,
+          body > .print-document-root .pro-invoice-summary,
+          body > .print-document-root .document-signatures,
+          body > .print-document-root .document-footer {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
 
-          left:
-            34%;
+          body > .print-document-root .pro-invoice-table thead {
+            display: table-header-group !important;
+          }
 
-          height:
-            17mm;
-
-          border-radius:
-            50%;
-
-          background:
-            #16488f;
-
+          body > .print-document-root .pro-invoice-table tbody tr {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
         }
-
       `}</style>
 
-
       <article className="invoice-print-document">
-
-
-        <div
-          className="invoice-watermark"
-          aria-hidden="true"
-        />
-
+        <div className="invoice-watermark" aria-hidden="true" />
 
         <div className="invoice-body">
+          <DocumentLetterhead
+            documentTitle="INVOICE"
+            documentNumber={invoice.invoice_number}
+            documentDate={formatDate(invoice.invoice_date)}
+          />
 
-
-          <header className="invoice-header invoice-no-break">
-
-
-            <div className="invoice-brand">
-
-
-              <Image
-                src="/djallows-logo.png"
-                alt="Djallows Farm"
-                width={120}
-                height={120}
-                priority
-                className="invoice-logo-image"
-              />
-
-
-              <div className="invoice-brand-copy">
-
-                <h1>
-                  Djallows Farm
-                </h1>
-
-                <p className="tagline">
-                  Success Through Sheep Farming
-                </p>
-
-                <div className="invoice-contact">
-
-                  <span>
-                    Tujereng, The Gambia
-                  </span>
-
-                  <span>
-                    +220 789 3464
-                  </span>
-
-                </div>
-
-              </div>
-
-
-            </div>
-
-
-            <div className="invoice-heading">
-
-              <h2>
-                INVOICE
-              </h2>
-
-              <small>
-                Invoice No.
-              </small>
-
-              <div className="invoice-number">
-
-                {
-                  invoice.invoice_number
-                }
-
-              </div>
-
-              <br />
-
-              <div
-                className={
-                  "invoice-status " +
-                  statusClass
-                }
-              >
-
-                {
-                  statusText
-                }
-
-              </div>
-
-            </div>
-
-
-          </header>
-
-
-          <div className="invoice-divider invoice-no-break">
-
-            <div className="blue" />
-
-            <div className="green" />
-
+          <div className="pro-invoice-divider" aria-hidden="true">
+            <span className="blue" />
+            <span className="green" />
           </div>
 
-
-          <section className="invoice-info-grid invoice-no-break">
-
-
-            <div className="invoice-card">
-
-              <h3 className="invoice-card-title">
-                BILL TO
-              </h3>
-
-              <div className="invoice-card-line" />
-
-              <div className="bill-name">
-
-                {
-                  customer?.name ??
-                  "Customer"
-                }
-
-              </div>
-
-              <div className="bill-meta">
-
-                {
-                  customer?.phone &&
-                  (
-
-                    <span>
-                      {
-                        customer.phone
-                      }
-                    </span>
-
-                  )
-                }
-
-                {
-                  customer?.location &&
-                  (
-
-                    <span>
-                      {
-                        customer.location
-                      }
-                    </span>
-
-                  )
-                }
-
-              </div>
-
-            </div>
-
-
-            <div className="invoice-card">
-
-              <h3 className="invoice-card-title">
-                INVOICE DETAILS
-              </h3>
-
-              <div className="invoice-card-line" />
-
-              <div className="invoice-detail-list">
-
-                <div>
-
-                  <span>
-                    Invoice Date
-                  </span>
-
-                  <strong>
-                    {
-                      formatDate(
-                        invoice.invoice_date
-                      )
-                    }
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <span>
-                    Due Date
-                  </span>
-
-                  <strong>
-
-                    {
-                      invoice.due_date
-
-                        ? formatDate(
-                            invoice.due_date
-                          )
-
-                        : "-"
-                    }
-
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <span>
-                    Invoice Type
-                  </span>
-
-                  <strong>
-                    {
-                      typeLabel
-                    }
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <span>
-                    Status
-                  </span>
-
-                  <strong>
-                    {
-                      statusText
-                    }
-                  </strong>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-          </section>
-
-
-          <section className="invoice-table-wrap">
-
-
-            <table className="invoice-print-table">
-
-
-              <thead>
-
-                <tr>
-
-                  <th className="invoice-description">
-                    Description
-                  </th>
-
-                  <th className="invoice-qty">
-                    Qty
-                  </th>
-
-                  <th className="invoice-unit">
-                    Unit
-                  </th>
-
-                  <th className="invoice-price">
-                    Unit Price
-                  </th>
-
-                  <th className="invoice-amount">
-                    Amount
-                  </th>
-
-                </tr>
-
-              </thead>
-
-
-              <tbody>
-
-                {
-                  items.map(
-                    (
-                      item
-                    ) => {
-
-                      const clean =
-                        cleanDescription(
-                          item.description
-                        );
-
-
-                      return (
-
-                        <tr
-                          key={
-                            item.id
-                          }
-                        >
-
-                          <td>
-
-                            <div className="invoice-line-title">
-
-                              {
-                                clean.title
-                              }
-
-                            </div>
-
-                            {
-                              clean.meta &&
-                              (
-
-                                <div className="invoice-line-meta">
-
-                                  {
-                                    clean.meta
-                                  }
-
-                                </div>
-
-                              )
-                            }
-
-                          </td>
-
-                          <td className="invoice-center">
-
-                            {
-                              item.quantity
-                            }
-
-                          </td>
-
-                          <td className="invoice-center">
-
-                            {
-                              item.unit ??
-                              "Item"
-                            }
-
-                          </td>
-
-                          <td className="invoice-right">
-
-                            {
-                              money(
-                                item.unit_price
-                              )
-                            }
-
-                          </td>
-
-                          <td className="invoice-right">
-
-                            <strong>
-
-                              {
-                                money(
-                                  item.line_total
-                                )
-                              }
-
-                            </strong>
-
-                          </td>
-
-                        </tr>
-
-                      );
-
-                    }
-                  )
-                }
-
-              </tbody>
-
-
-            </table>
-
-
-          </section>
-
-
-          <section className="invoice-bottom invoice-no-break">
-
-
-            <div className="invoice-note">
-
-              <h3>
-                NOTE
-              </h3>
-
-              <div className="invoice-note-line" />
-
-              <p>
-
-                {
-                  invoice.notes ||
-                  "No note."
-                }
-
+          <section className="pro-invoice-info">
+            <div className="pro-invoice-panel">
+              <p className="pro-invoice-label">Bill To</p>
+
+              <p className="pro-invoice-customer">
+                {customer?.name ?? "Customer"}
               </p>
 
+              <div className="pro-invoice-meta">
+                {customer?.phone && <span>{customer.phone}</span>}
+                {customer?.location && <span>{customer.location}</span>}
+              </div>
             </div>
 
+            <div className="pro-invoice-panel">
+              <p className="pro-invoice-label">Invoice Details</p>
 
-            <div className="invoice-totals">
-
-
-              <div className="invoice-total-lines">
-
+              <div className="pro-invoice-facts">
                 <div>
-
-                  <span>
-                    Subtotal
-                  </span>
-
-                  <strong>
-                    {
-                      money(
-                        invoice.subtotal
-                      )
-                    }
-                  </strong>
-
+                  <span>Invoice Date</span>
+                  <strong>{formatDate(invoice.invoice_date)}</strong>
                 </div>
 
                 <div>
-
-                  <span>
-                    Discount
-                  </span>
-
+                  <span>Due Date</span>
                   <strong>
-                    {
-                      money(
-                        invoice.discount
-                      )
-                    }
+                    {invoice.due_date
+                      ? formatDate(invoice.due_date)
+                      : "-"}
                   </strong>
-
-                </div>
-
-                <div className="invoice-grand-total">
-
-                  <span>
-                    Total
-                  </span>
-
-                  <strong>
-                    {
-                      money(
-                        invoice.total_amount
-                      )
-                    }
-                  </strong>
-
                 </div>
 
                 <div>
-
-                  <span>
-                    Paid
-                  </span>
-
-                  <strong>
-                    {
-                      money(
-                        invoice.amount_paid
-                      )
-                    }
-                  </strong>
-
+                  <span>Invoice Type</span>
+                  <strong>{typeLabel}</strong>
                 </div>
 
+                <div>
+                  <span>Status</span>
+                  <strong className="pro-status">{statusText}</strong>
+                </div>
               </div>
-
-
-              <div className="invoice-balance">
-
-                <span>
-                  BALANCE DUE
-                </span>
-
-                <strong>
-                  {
-                    money(
-                      invoice.balance_due
-                    )
-                  }
-                </strong>
-
-              </div>
-
-
             </div>
-
-
           </section>
 
+          <section className="pro-invoice-table-wrap">
+            <table className="pro-invoice-table">
+              <thead>
+                <tr>
+                  <th className="pro-desc">Description</th>
+                  <th className="pro-qty">Qty</th>
+                  <th className="pro-unit">Unit</th>
+                  <th className="pro-price">Unit Price</th>
+                  <th className="pro-amount">Amount</th>
+                </tr>
+              </thead>
 
-          <div className="invoice-no-break">
+              <tbody>
+                {items.map((item) => {
+                  const clean = cleanDescription(item.description);
 
-            <div className="invoice-thank-you">
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="pro-line-title">{clean.title}</div>
+                        {clean.meta && (
+                          <div className="pro-line-meta">{clean.meta}</div>
+                        )}
+                      </td>
 
-              THANK YOU FOR YOUR BUSINESS!
+                      <td className="pro-center">{item.quantity}</td>
+                      <td className="pro-center">{item.unit ?? "Item"}</td>
+                      <td className="pro-right">{money(item.unit_price)}</td>
+                      <td className="pro-right">
+                        <strong>{money(item.line_total)}</strong>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </section>
 
+          <section className="pro-invoice-summary">
+            <div className="pro-invoice-note">
+              <h3>NOTE</h3>
+              <p>{invoice.notes || "No additional note."}</p>
             </div>
 
+            <div className="pro-invoice-totals">
+              <div className="pro-total-lines">
+                <div>
+                  <span>Subtotal</span>
+                  <strong>{money(invoice.subtotal)}</strong>
+                </div>
 
-            <div className="invoice-watermark-row">
+                <div>
+                  <span>Discount</span>
+                  <strong>{money(invoice.discount)}</strong>
+                </div>
 
-              <span />
+                <div className="grand-total">
+                  <span>Total</span>
+                  <strong>{money(invoice.total_amount)}</strong>
+                </div>
 
-              <div
-                className="invoice-small-logo"
-                aria-hidden="true"
-              />
+                <div>
+                  <span>Amount Paid</span>
+                  <strong>{money(invoice.amount_paid)}</strong>
+                </div>
+              </div>
 
-              <span />
-
+              <div className="pro-balance">
+                <span>Balance Due</span>
+                <strong>{money(invoice.balance_due)}</strong>
+              </div>
             </div>
+          </section>
 
-
-            <div className="invoice-footer-info">
-
-              <span>
-                DJALLOWS FARM - Success Through Sheep Farming
-              </span>
-
-              <span>
-                Tujereng, The Gambia
-              </span>
-
-            </div>
-
-
-            <div className="invoice-footer-wave">
-
-              <div className="invoice-footer-green" />
-
-              <div className="invoice-footer-blue" />
-
-            </div>
-
+          <div className="pro-invoice-closing">
+            <DocumentSignatureBlock />
+            <DocumentFooter className="pro-invoice-footer" />
           </div>
-
-
         </div>
-
-
       </article>
-
     </>
-
   );
 }
 
@@ -4769,142 +3344,264 @@ function PrintableReceipt({
   accountName: string;
 }) {
   return (
-    <div className="mx-auto max-w-[800px] bg-white p-8 text-slate-950">
-
-      <DocumentHeader
-        title="RECEIPT"
-        number={
-          payment.receipt_number
+    <>
+      <style>{`
+        .payment-receipt-document {
+          position: relative;
+          box-sizing: border-box;
+          display: flex;
+          width: min(190mm, 100%);
+          min-height: 274mm;
+          margin: 0 auto;
+          flex-direction: column;
+          overflow: hidden;
+          background: #ffffff;
+          color: #182333;
+          font-family: Arial, Helvetica, sans-serif;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
-      />
 
-      <div className="mt-8 border-t-2 border-[#0b5136] pt-7">
+        .payment-receipt-watermark {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          background-image: url('/djallows-logo.png');
+          background-repeat: no-repeat;
+          background-position: center 48%;
+          background-size: 105mm;
+          opacity: 0.028;
+        }
 
-        <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+        .payment-receipt-sheet {
+          position: relative;
+          z-index: 2;
+          box-sizing: border-box;
+          display: flex;
+          min-height: 274mm;
+          flex-direction: column;
+          padding: 9mm 10mm 7mm;
+        }
 
-          <ReceiptField
-            label="Received From"
-            value={
-              customer?.name ??
-              "Customer"
-            }
+        .payment-receipt-divider {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 3mm;
+          margin-top: 5mm;
+        }
+
+        .payment-receipt-divider span {
+          height: 1.2mm;
+          border-radius: 999px;
+        }
+
+        .payment-receipt-divider .blue {
+          background: #17488f;
+        }
+
+        .payment-receipt-divider .green {
+          background: #2d9b45;
+        }
+
+        .payment-receipt-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 5mm;
+          margin-top: 7mm;
+        }
+
+        .payment-receipt-panel {
+          padding: 5mm;
+          border: 1px solid #cbd6e4;
+          border-top: 1.2mm solid #17488f;
+          border-radius: 2.5mm;
+          background: rgba(255, 255, 255, 0.97);
+        }
+
+        .payment-receipt-label {
+          margin: 0;
+          color: #17488f;
+          font-size: 7.5pt;
+          font-weight: 900;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+        }
+
+        .payment-receipt-name {
+          margin: 3.5mm 0 0;
+          font-size: 12pt;
+          font-weight: 900;
+        }
+
+        .payment-receipt-facts {
+          display: grid;
+          margin: 2.5mm 0 0;
+          font-size: 8.3pt;
+        }
+
+        .payment-receipt-facts div {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 4mm;
+          padding: 2mm 0;
+          border-bottom: 1px dotted #d5dee9;
+        }
+
+        .payment-receipt-facts div:last-child {
+          border-bottom: none;
+        }
+
+        .payment-receipt-facts span {
+          color: #667386;
+        }
+
+        .payment-receipt-facts strong {
+          text-align: right;
+        }
+
+        .payment-receipt-amount {
+          margin-top: 8mm;
+          padding: 8mm;
+          border: 1px solid #b7d7bd;
+          border-left: 1.6mm solid #2d9b45;
+          border-radius: 2.5mm;
+          background: #fbfefb;
+          text-align: center;
+        }
+
+        .payment-receipt-amount span {
+          color: #2d7f40;
+          font-size: 8pt;
+          font-weight: 900;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+
+        .payment-receipt-amount strong {
+          display: block;
+          margin-top: 3mm;
+          color: #1c7a39;
+          font-size: 28pt;
+          font-weight: 900;
+        }
+
+        .payment-receipt-note {
+          margin-top: 6mm;
+          padding: 4mm 5mm;
+          border-left: 1mm solid #17488f;
+          background: #f8fafc;
+          color: #556274;
+          font-size: 8.5pt;
+          line-height: 1.5;
+        }
+
+        .payment-receipt-closing {
+          margin-top: auto;
+          padding-top: 14mm;
+        }
+
+        .payment-receipt-footer {
+          margin-top: 9mm;
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+
+          body > .print-document-root .payment-receipt-document {
+            width: 190mm !important;
+            max-width: 190mm !important;
+            min-height: 274mm !important;
+            margin: 0 auto !important;
+            overflow: hidden !important;
+          }
+
+          body > .print-document-root .payment-receipt-sheet {
+            min-height: 274mm !important;
+            padding: 5mm 6mm 4mm !important;
+          }
+
+          body > .print-document-root .payment-receipt-grid,
+          body > .print-document-root .document-signatures,
+          body > .print-document-root .document-footer {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
+
+      <article className="payment-receipt-document">
+        <div className="payment-receipt-watermark" aria-hidden="true" />
+
+        <div className="payment-receipt-sheet">
+          <DocumentLetterhead
+            documentTitle="RECEIPT"
+            documentNumber={payment.receipt_number}
+            documentDate={formatDate(payment.payment_date)}
           />
 
-          <ReceiptField
-            label="Receipt Date"
-            value={formatDate(
-              payment.payment_date
-            )}
-          />
-
-          <ReceiptField
-            label="Payment For"
-            value={
-              invoice.invoice_number
-            }
-          />
-
-          <ReceiptField
-            label="Received Into"
-            value={
-              accountName
-            }
-          />
-
-        </div>
-
-        <div className="mt-8 rounded-2xl bg-[#eef7f2] p-6 text-center">
-
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">
-            Amount Received
-          </p>
-
-          <p className="mt-3 text-[34px] font-black text-[#0b5136]">
-            {money(
-              payment.amount
-            )}
-          </p>
-
-        </div>
-
-        <div className="mt-7 grid grid-cols-2 gap-5">
-
-          <ReceiptField
-            label="Invoice Total"
-            value={
-              money(
-                invoice.total_amount
-              )
-            }
-          />
-
-          <ReceiptField
-            label="Current Invoice Balance"
-            value={
-              money(
-                invoice.balance_due
-              )
-            }
-          />
-
-        </div>
-
-        {payment.notes && (
-          <div className="mt-7">
-
-            <p className="text-[11px] font-bold uppercase text-slate-500">
-              Note
-            </p>
-
-            <p className="mt-2 text-[13px]">
-              {
-                payment.notes
-              }
-            </p>
-
+          <div className="payment-receipt-divider" aria-hidden="true">
+            <span className="blue" />
+            <span className="green" />
           </div>
-        )}
 
-        <div className="mt-12 border-t border-slate-300 pt-4 text-center">
+          <section className="payment-receipt-grid">
+            <div className="payment-receipt-panel">
+              <p className="payment-receipt-label">Received From</p>
+              <p className="payment-receipt-name">
+                {customer?.name ?? "Customer"}
+              </p>
+            </div>
 
-          <p className="text-[11px] font-semibold text-slate-600">
-            Thank you for your payment.
-          </p>
+            <div className="payment-receipt-panel">
+              <p className="payment-receipt-label">Receipt Details</p>
 
-          <p className="mt-2 text-[11px] font-semibold text-slate-600">
-            Djallows Farm · Tujereng, The Gambia · +220 789 3464
-          </p>
+              <div className="payment-receipt-facts">
+                <div>
+                  <span>Receipt Date</span>
+                  <strong>{formatDate(payment.payment_date)}</strong>
+                </div>
 
-          <p className="mt-1 text-[11px] font-bold italic text-[#0b5136]">
-            Success Through Sheep Farming
-          </p>
+                <div>
+                  <span>Invoice Ref</span>
+                  <strong>{invoice.invoice_number}</strong>
+                </div>
 
+                <div>
+                  <span>Received Into</span>
+                  <strong>{accountName}</strong>
+                </div>
+
+                <div>
+                  <span>Invoice Balance</span>
+                  <strong>{money(invoice.balance_due)}</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="payment-receipt-amount">
+            <span>Amount Received</span>
+            <strong>{money(payment.amount)}</strong>
+          </div>
+
+          {payment.notes && (
+            <div className="payment-receipt-note">
+              <strong>Note: </strong>
+              {payment.notes}
+            </div>
+          )}
+
+          <div className="payment-receipt-closing">
+            <DocumentSignatureBlock />
+            <DocumentFooter className="payment-receipt-footer" />
+          </div>
         </div>
-
-      </div>
-
-    </div>
+      </article>
+    </>
   );
 }
 
-function ReceiptField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div>
-
-      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">
-        {label}
-      </p>
-
-      <p className="mt-2 text-[14px] font-bold text-slate-950">
-        {value}
-      </p>
-
-    </div>
-  );
-}
