@@ -29,7 +29,6 @@ import {
 import AppNotification from "@/components/AppNotification";
 import FinancePageShell from "@/components/FinancePageShell";
 
-import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // TYPES
@@ -49,6 +48,7 @@ type IncomeTransaction = {
   category_id: string | null;
   account_id: string | null;
   payment_method: string | null;
+  reference: string | null;
   notes: string | null;
   created_by: string | null;
 };
@@ -64,11 +64,6 @@ type Account = {
   name: string;
   account_type: string;
   active: boolean;
-};
-
-type Membership = {
-  business_id: string;
-  role: MemberRole;
 };
 
 type CategorySummary = {
@@ -272,6 +267,11 @@ export default function IncomePage() {
   ] = useState("");
 
   const [
+    editReference,
+    setEditReference,
+  ] = useState("");
+
+  const [
     editNotes,
     setEditNotes,
   ] = useState("");
@@ -313,7 +313,7 @@ export default function IncomePage() {
   }
 
   // ==========================================================
-  // LOAD INCOME DATA
+  // LOAD LOCAL INCOME DATA
   // ==========================================================
 
   useEffect(() => {
@@ -324,18 +324,18 @@ export default function IncomePage() {
         setLoading(true);
         setError("");
 
-        const {
-          data: {
-            session,
-          },
-          error:
-            sessionError,
-        } =
-          await supabase.auth.getSession();
+        const response =
+          await fetch(
+            "/api/local/income",
+            {
+              cache:
+                "no-store",
+            }
+          );
 
         if (
-          sessionError ||
-          !session
+          response.status ===
+          401
         ) {
           router.replace(
             "/login"
@@ -344,158 +344,31 @@ export default function IncomePage() {
           return;
         }
 
-        // ----------------------------------------------------
-        // BUSINESS MEMBERSHIP + ROLE
-        // ----------------------------------------------------
+        const data =
+          (await response.json()) as {
+            success?: boolean;
+            error?: string;
+            business_id?: string;
+            user_id?: string;
+            role?: MemberRole;
 
-        const {
-          data:
-            membershipData,
-          error:
-            membershipError,
-        } = await supabase
-          .from(
-            "business_members"
-          )
-          .select(
-            "business_id, role"
-          )
-          .eq(
-            "user_id",
-            session.user.id
-          )
-          .limit(1)
-          .maybeSingle();
+            transactions?:
+              IncomeTransaction[];
+
+            categories?:
+              Category[];
+
+            accounts?:
+              Account[];
+          };
 
         if (
-          membershipError ||
-          !membershipData
+          !response.ok ||
+          !data.success
         ) {
           throw new Error(
-            "Unable to find your Djallows Farm business access."
-          );
-        }
-
-        const membership =
-          membershipData as Membership;
-
-        // ----------------------------------------------------
-        // INCOME TRANSACTIONS
-        // ----------------------------------------------------
-
-        const {
-          data:
-            transactionRows,
-          error:
-            transactionError,
-        } = await supabase
-          .from(
-            "transactions"
-          )
-          .select(
-            `
-            id,
-            transaction_number,
-            transaction_date,
-            description,
-            amount,
-            category_id,
-            account_id,
-            payment_method,
-            notes,
-            created_by
-          `
-          )
-          .eq(
-            "business_id",
-            membership.business_id
-          )
-          .eq(
-            "transaction_type",
-            "income"
-          )
-          .order(
-            "transaction_date",
-            {
-              ascending:
-                false,
-            }
-          );
-
-        if (
-          transactionError
-        ) {
-          throw new Error(
-            `Unable to load income records: ${transactionError.message}`
-          );
-        }
-
-        // ----------------------------------------------------
-        // INCOME SOURCES
-        // ----------------------------------------------------
-
-        const {
-          data:
-            categoryRows,
-          error:
-            categoryError,
-        } = await supabase
-          .from(
-            "categories"
-          )
-          .select(
-            "id, name, active"
-          )
-          .eq(
-            "business_id",
-            membership.business_id
-          )
-          .eq(
-            "category_type",
-            "income"
-          )
-          .order("name");
-
-        if (
-          categoryError
-        ) {
-          throw new Error(
-            `Unable to load income sources: ${categoryError.message}`
-          );
-        }
-
-        // ----------------------------------------------------
-        // ACCOUNTS
-        // ----------------------------------------------------
-
-        const {
-          data:
-            accountRows,
-          error:
-            accountError,
-        } = await supabase
-          .from(
-            "financial_accounts"
-          )
-          .select(
-            `
-            id,
-            name,
-            account_type,
-            active
-          `
-          )
-          .eq(
-            "business_id",
-            membership.business_id
-          )
-          .order("name");
-
-        if (
-          accountError
-        ) {
-          throw new Error(
-            `Unable to load financial accounts: ${accountError.message}`
+            data.error ||
+              "Unable to load income records."
           );
         }
 
@@ -504,110 +377,49 @@ export default function IncomePage() {
         }
 
         setBusinessId(
-          membership.business_id
+          data.business_id ??
+          ""
         );
 
         setCurrentUserId(
-          session.user.id
+          data.user_id ??
+          ""
         );
 
         setMemberRole(
-          membership.role
+          data.role ??
+          "staff"
         );
 
         setTransactions(
-          (
-            transactionRows ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              transaction_number:
-                row.transaction_number,
-
-              transaction_date:
-                row.transaction_date,
-
-              description:
-                row.description ??
-                "",
-
-              amount:
-                Number(
-                  row.amount ??
-                    0
-                ),
-
-              category_id:
-                row.category_id,
-
-              account_id:
-                row.account_id,
-
-              payment_method:
-                row.payment_method,
-
-              notes:
-                row.notes,
-
-              created_by:
-                row.created_by,
-            })
-          )
+          data.transactions ??
+          []
         );
 
         setCategories(
-          (
-            categoryRows ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              name:
-                row.name,
-
-              active:
-                row.active ??
-                true,
-            })
-          )
+          data.categories ??
+          []
         );
 
         setAccounts(
-          (
-            accountRows ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              name:
-                row.name,
-
-              account_type:
-                row.account_type,
-
-              active:
-                row.active ??
-                true,
-            })
-          )
+          data.accounts ??
+          []
         );
 
-        setLoading(false);
+        setLoading(
+          false
+        );
+
       } catch (
         loadError
       ) {
+
         console.error(
           loadError
         );
 
         if (active) {
+
           setError(
             loadError instanceof
               Error
@@ -615,7 +427,9 @@ export default function IncomePage() {
               : "Unable to load income records."
           );
 
-          setLoading(false);
+          setLoading(
+            false
+          );
         }
       }
     }
@@ -625,7 +439,10 @@ export default function IncomePage() {
     return () => {
       active = false;
     };
-  }, [router]);
+
+  }, [
+    router,
+  ]);
 
   // ==========================================================
   // MAPS
@@ -718,6 +535,14 @@ export default function IncomePage() {
                 searchText
               ) ||
             account
+              .toLowerCase()
+              .includes(
+                searchText
+              ) ||
+            (
+              transaction.reference ??
+              ""
+            )
               .toLowerCase()
               .includes(
                 searchText
@@ -1046,6 +871,11 @@ export default function IncomePage() {
         ""
     );
 
+    setEditReference(
+      transaction.reference ??
+        ""
+    );
+
     setEditNotes(
       transaction.notes ??
         ""
@@ -1166,131 +996,112 @@ export default function IncomePage() {
       setEditError("");
       setError("");
 
-      const {
-        data:
-          updatedRow,
-        error:
-          updateError,
-      } = await supabase
-        .from(
-          "transactions"
-        )
-        .update({
-          transaction_date:
-            `${editDate}T12:00:00`,
+      const response =
+        await fetch(
+          "/api/local/income",
+          {
+            method:
+              "PATCH",
 
-          category_id:
-            editCategoryId,
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          description,
+            body:
+              JSON.stringify({
+                id:
+                  editingTransaction.id,
 
-          amount,
+                transaction_date:
+                  `${editDate}T12:00:00`,
 
-          account_id:
-            editAccountId,
+                category_id:
+                  editCategoryId,
 
-          payment_method:
-            selectedAccount.name,
+                description,
 
-          notes:
-            editNotes.trim() ||
-            null,
-        })
-        .eq(
-          "id",
-          editingTransaction.id
-        )
-        .eq(
-          "business_id",
-          businessId
-        )
-        .eq(
-          "transaction_type",
-          "income"
-        )
-        .select(
-          `
-          id,
-          transaction_number,
-          transaction_date,
-          description,
-          amount,
-          category_id,
-          account_id,
-          payment_method,
-          notes,
-          created_by
-        `
-        )
-        .single();
+                amount,
+
+                account_id:
+                  editAccountId,
+
+                reference:
+                  editReference.trim() ||
+                  null,
+
+                notes:
+                  editNotes.trim() ||
+                  null,
+              }),
+          }
+        );
+
+      const data =
+        (await response.json()) as {
+          success?: boolean;
+          error?: string;
+
+          transaction?:
+            IncomeTransaction;
+        };
 
       if (
-        updateError ||
-        !updatedRow
+        !response.ok ||
+        !data.success ||
+        !data.transaction
       ) {
+
         throw new Error(
-          updateError?.message ||
+          data.error ||
             "Unable to save changes."
         );
       }
 
-      const updatedTransaction:
-        IncomeTransaction = {
-          id:
-            updatedRow.id,
+      const updatedRow =
+        data.transaction;
 
-          transaction_number:
-            updatedRow.transaction_number,
+      // Reload directly from the local SQLite API after editing.
+      // This keeps the screen exactly in sync with the database,
+      // including Reference and Note.
 
-          transaction_date:
-            updatedRow.transaction_date,
+      const refreshResponse =
+        await fetch(
+          "/api/local/income",
+          {
+            cache:
+              "no-store",
+          }
+        );
 
-          description:
-            updatedRow.description ??
-            "",
 
-          amount:
-            Number(
-              updatedRow.amount ??
-                0
-            ),
+      const refreshData =
+        (await refreshResponse.json()) as {
+          success?: boolean;
+          error?: string;
 
-          category_id:
-            updatedRow.category_id,
-
-          account_id:
-            updatedRow.account_id,
-
-          payment_method:
-            updatedRow.payment_method,
-
-          notes:
-            updatedRow.notes,
-
-          created_by:
-            updatedRow.created_by,
+          transactions?:
+            IncomeTransaction[];
         };
 
+
+      if (
+        !refreshResponse.ok ||
+        !refreshData.success
+      ) {
+
+        throw new Error(
+          refreshData.error ||
+            "The income was saved, but the screen could not be refreshed."
+        );
+      }
+
+
       setTransactions(
-        (current) =>
-          current
-            .map(
-              (transaction) =>
-                transaction.id ===
-                updatedTransaction.id
-                  ? updatedTransaction
-                  : transaction
-            )
-            .sort(
-              (a, b) =>
-                new Date(
-                  b.transaction_date
-                ).getTime() -
-                new Date(
-                  a.transaction_date
-                ).getTime()
-            )
+        refreshData.transactions ??
+        []
       );
+
 
       setEditingTransaction(
         null
@@ -1344,30 +1155,41 @@ export default function IncomePage() {
       setDeleting(true);
       setError("");
 
-      const {
-        error:
-          deleteError,
-      } = await supabase
-        .from(
-          "transactions"
-        )
-        .delete()
-        .eq(
-          "id",
-          transaction.id
-        )
-        .eq(
-          "business_id",
-          businessId
-        )
-        .eq(
-          "transaction_type",
-          "income"
+      const response =
+        await fetch(
+          "/api/local/income",
+          {
+            method:
+              "DELETE",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                ids: [
+                  transaction.id,
+                ],
+              }),
+          }
         );
 
-      if (deleteError) {
+      const data =
+        (await response.json()) as {
+          success?: boolean;
+          error?: string;
+        };
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+
         throw new Error(
-          deleteError.message
+          data.error ||
+            "Unable to delete the record."
         );
       }
 
@@ -1451,30 +1273,39 @@ export default function IncomePage() {
       setDeleting(true);
       setError("");
 
-      const {
-        error:
-          deleteError,
-      } = await supabase
-        .from(
-          "transactions"
-        )
-        .delete()
-        .eq(
-          "business_id",
-          businessId
-        )
-        .eq(
-          "transaction_type",
-          "income"
-        )
-        .in(
-          "id",
-          ids
+      const response =
+        await fetch(
+          "/api/local/income",
+          {
+            method:
+              "DELETE",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                ids,
+              }),
+          }
         );
 
-      if (deleteError) {
+      const data =
+        (await response.json()) as {
+          success?: boolean;
+          error?: string;
+        };
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+
         throw new Error(
-          deleteError.message
+          data.error ||
+            "Unable to delete the selected records."
         );
       }
 
@@ -2066,23 +1897,24 @@ export default function IncomePage() {
               className={`w-full table-fixed text-left ${
                 isOwnerOrAdmin
                   ? "min-w-[1530px]"
-                  : "min-w-[1370px]"
+                  : "min-w-[1470px]"
               }`}
             >
 
               <colgroup>
 
                 {isOwnerOrAdmin && (
-                  <col className="w-[70px]" />
+                  <col className="w-[55px]" />
                 )}
 
                 <col className="w-[145px]" />
-                <col className="w-[300px]" />
-                <col className="w-[170px]" />
+                <col className="w-[235px]" />
+                <col className="w-[165px]" />
                 <col className="w-[180px]" />
-                <col className="w-[265px]" />
                 <col className="w-[175px]" />
                 <col className="w-[220px]" />
+                <col className="w-[165px]" />
+                <col className="w-[195px]" />
 
               </colgroup>
 
@@ -2124,9 +1956,8 @@ export default function IncomePage() {
                     Received In
                   </th>
 
-                  <th className="px-6 py-4">
-                    Reference / Note
-                  </th>
+                  <th className="px-6 py-4">Reference</th>
+<th className="px-6 py-4">Note</th>
 
                   <th className="px-6 py-4 text-right">
                     Amount
@@ -2185,7 +2016,7 @@ export default function IncomePage() {
                       >
 
                         {isOwnerOrAdmin && (
-                          <td className="px-5 py-5 text-center align-middle">
+                          <td className="px-4 py-4 text-center align-top">
 
                             <input
                               type="checkbox"
@@ -2206,7 +2037,7 @@ export default function IncomePage() {
                           </td>
                         )}
 
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-5 py-4 align-top">
 
                           <div className="flex items-center gap-2.5 whitespace-nowrap">
 
@@ -2225,7 +2056,7 @@ export default function IncomePage() {
 
                         </td>
 
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-5 py-4 align-top">
 
                           <p className="text-[15px] font-bold leading-6 text-slate-950">
                             {
@@ -2233,15 +2064,9 @@ export default function IncomePage() {
                             }
                           </p>
 
-                          <p className="mt-1 text-[13px] font-medium text-slate-500">
-                            {
-                              transaction.transaction_number
-                            }
-                          </p>
-
                         </td>
 
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-5 py-4 align-top">
 
                           <span className="inline-flex whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[13px] font-bold text-[#0b5136]">
                             {
@@ -2251,7 +2076,7 @@ export default function IncomePage() {
 
                         </td>
 
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-5 py-4 align-top">
 
                           <div className="flex items-center gap-2.5 whitespace-nowrap">
 
@@ -2280,22 +2105,40 @@ export default function IncomePage() {
 
                         </td>
 
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-5 py-4 align-top">
 
-                          <p
-                            title={
-                              transaction.notes ??
-                              ""
-                            }
-                            className="truncate text-[15px] font-medium text-slate-600"
-                          >
-                            {transaction.notes ||
-                              "—"}
-                          </p>
+                          {transaction.reference ? (
+                            <p className="break-words text-[14px] font-semibold leading-5 text-slate-700">
+                              {
+                                transaction.reference
+                              }
+                            </p>
+                          ) : (
+                            <span className="text-slate-400">
+                              —
+                            </span>
+                          )}
 
                         </td>
 
-                        <td className="px-6 py-5 text-right align-middle">
+
+                        <td className="px-5 py-4 align-top">
+
+                          {transaction.notes ? (
+                            <p className="break-words text-[13px] font-medium leading-5 text-slate-600">
+                              {
+                                transaction.notes
+                              }
+                            </p>
+                          ) : (
+                            <span className="text-slate-400">
+                              —
+                            </span>
+                          )}
+
+                        </td>
+
+                        <td className="px-5 py-4 text-right align-top">
 
                           <span className="inline-flex whitespace-nowrap rounded-lg bg-emerald-50 px-3 py-2 text-[15px] font-bold text-emerald-800">
                             +{" "}
@@ -2306,7 +2149,7 @@ export default function IncomePage() {
 
                         </td>
 
-                        <td className="px-6 py-5 text-right align-middle">
+                        <td className="px-5 py-4 text-right align-top">
 
                           <div className="flex items-center justify-end gap-2">
 
@@ -2415,11 +2258,7 @@ export default function IncomePage() {
                   Edit Income
                 </h2>
 
-                <p className="mt-1 text-[14px] font-medium text-slate-600">
-                  {
-                    editingTransaction.transaction_number
-                  }
-                </p>
+
 
               </div>
 
@@ -2572,19 +2411,27 @@ export default function IncomePage() {
                     </span>
 
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       value={
                         editAmount
                       }
                       onChange={(
                         event
-                      ) =>
-                        setEditAmount(
-                          event.target.value
-                        )
-                      }
+                      ) => {
+                        const value =
+                          event.target.value;
+
+                        if (
+                          /^\d*(\.\d{0,2})?$/.test(
+                            value
+                          )
+                        ) {
+                          setEditAmount(
+                            value
+                          );
+                        }
+                      }}
                       className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-16 pr-4 text-[15px] font-bold text-slate-900 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
                     />
 
@@ -2648,14 +2495,39 @@ export default function IncomePage() {
 
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
 
                   <label className="mb-2 block text-[14px] font-bold text-slate-800">
-                    Reference / Note
+                    Reference
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      editReference
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setEditReference(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Receipt, cheque or other reference"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-[15px] font-medium text-slate-800 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+                  />
+
+                </div>
+
+
+                <div>
+
+                  <label className="mb-2 block text-[14px] font-bold text-slate-800">
+                    Note
                   </label>
 
                   <textarea
-                    rows={4}
+                    rows={3}
                     value={
                       editNotes
                     }
@@ -2666,6 +2538,7 @@ export default function IncomePage() {
                         event.target.value
                       )
                     }
+                    placeholder="Optional note"
                     className="w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-[15px] font-medium text-slate-800 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
                   />
 

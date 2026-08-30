@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 
 import FinancePageShell from "@/components/FinancePageShell";
-import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // CONSTANTS
@@ -36,10 +35,6 @@ const NO_SOURCE = "__none__";
 // ============================================================
 // TYPES
 // ============================================================
-
-type Membership = {
-  business_id: string;
-};
 
 type IncomeSource = {
   id: string;
@@ -77,38 +72,6 @@ function money(amount: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
-}
-
-function createIncomeNumber() {
-  const now = new Date();
-
-  const year = now.getFullYear();
-
-  const month = String(
-    now.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    now.getDate()
-  ).padStart(2, "0");
-
-  const hours = String(
-    now.getHours()
-  ).padStart(2, "0");
-
-  const minutes = String(
-    now.getMinutes()
-  ).padStart(2, "0");
-
-  const seconds = String(
-    now.getSeconds()
-  ).padStart(2, "0");
-
-  const random = Math.floor(
-    1000 + Math.random() * 9000
-  );
-
-  return `INC-${year}${month}${day}-${hours}${minutes}${seconds}-${random}`;
 }
 
 function getAccountIcon(
@@ -230,30 +193,38 @@ export default function AddIncomePage() {
   ] = useState("");
 
   // ==========================================================
-  // LOAD PAGE
+  // LOAD LOCAL PAGE
   // ==========================================================
 
   useEffect(() => {
     let active = true;
 
     async function loadPage() {
-      try {
-        setLoading(true);
-        setError("");
 
-        const {
-          data: {
-            session,
-          },
-          error:
-            sessionError,
-        } =
-          await supabase.auth.getSession();
+      try {
+
+        setLoading(
+          true
+        );
+
+        setError(
+          ""
+        );
+
+        const response =
+          await fetch(
+            "/api/local/income",
+            {
+              cache:
+                "no-store",
+            }
+          );
 
         if (
-          sessionError ||
-          !session
+          response.status ===
+          401
         ) {
+
           router.replace(
             "/login"
           );
@@ -261,159 +232,100 @@ export default function AddIncomePage() {
           return;
         }
 
+        const data =
+          (await response.json()) as {
+            success?: boolean;
+            error?: string;
+            business_id?: string;
+            user_id?: string;
+
+            categories?: Array<{
+              id: string;
+              name: string;
+              active: boolean;
+            }>;
+
+            accounts?: Array<{
+              id: string;
+              name: string;
+              account_type: string;
+              active: boolean;
+            }>;
+          };
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+
+          throw new Error(
+            data.error ||
+              "Unable to load the income form."
+          );
+        }
+
         if (!active) {
           return;
         }
 
         setUserId(
-          session.user.id
+          data.user_id ??
+          ""
         );
-
-        // ----------------------------------------------------
-        // BUSINESS
-        // ----------------------------------------------------
-
-        const {
-          data:
-            membershipData,
-          error:
-            membershipError,
-        } = await supabase
-          .from(
-            "business_members"
-          )
-          .select(
-            "business_id"
-          )
-          .eq(
-            "user_id",
-            session.user.id
-          )
-          .limit(1)
-          .maybeSingle();
-
-        if (
-          membershipError ||
-          !membershipData
-        ) {
-          throw new Error(
-            "Unable to find your Djallows Farm business access."
-          );
-        }
-
-        const membership =
-          membershipData as Membership;
-
-        if (!active) {
-          return;
-        }
 
         setBusinessId(
-          membership.business_id
+          data.business_id ??
+          ""
         );
-
-        // ----------------------------------------------------
-        // INCOME SOURCES
-        // Database uses category_type = income internally.
-        // Customer-facing wording is Income Source.
-        // ----------------------------------------------------
-
-        const {
-          data:
-            sourceRows,
-          error:
-            sourceError,
-        } = await supabase
-          .from("categories")
-          .select(
-            `
-            id,
-            name
-          `
-          )
-          .eq(
-            "business_id",
-            membership.business_id
-          )
-          .eq(
-            "category_type",
-            "income"
-          )
-          .eq(
-            "active",
-            true
-          )
-          .order(
-            "name",
-            {
-              ascending: true,
-            }
-          );
-
-        if (
-          sourceError
-        ) {
-          throw new Error(
-            `Unable to load income sources: ${sourceError.message}`
-          );
-        }
-
-        // ----------------------------------------------------
-        // ACCOUNTS
-        // ----------------------------------------------------
-
-        const {
-          data:
-            accountRows,
-          error:
-            accountError,
-        } = await supabase
-          .from(
-            "financial_accounts"
-          )
-          .select(
-            `
-            id,
-            name,
-            account_type
-          `
-          )
-          .eq(
-            "business_id",
-            membership.business_id
-          )
-          .eq(
-            "active",
-            true
-          )
-          .order(
-            "name",
-            {
-              ascending: true,
-            }
-          );
-
-        if (
-          accountError
-        ) {
-          throw new Error(
-            `Unable to load receiving accounts: ${accountError.message}`
-          );
-        }
-
-        if (!active) {
-          return;
-        }
 
         const sourceList =
           (
-            sourceRows ?? []
-          ) as IncomeSource[];
+            data.categories ??
+            []
+          )
+            .filter(
+              (
+                source
+              ) =>
+                source.active
+            )
+            .map(
+              (
+                source
+              ) => ({
+                id:
+                  source.id,
+
+                name:
+                  source.name,
+              })
+            );
 
         const accountList =
           (
-            accountRows ?? []
-          ) as Account[];
+            data.accounts ??
+            []
+          )
+            .filter(
+              (
+                account
+              ) =>
+                account.active
+            )
+            .map(
+              (
+                account
+              ) => ({
+                id:
+                  account.id,
+
+                name:
+                  account.name,
+
+                account_type:
+                  account.account_type,
+              })
+            );
 
         setIncomeSources(
           sourceList
@@ -423,46 +335,29 @@ export default function AddIncomePage() {
           accountList
         );
 
-        // ----------------------------------------------------
-        // USER MUST DELIBERATELY SELECT AN INCOME SOURCE
-        // ----------------------------------------------------
-
         setSourceId(
           NO_SOURCE
         );
 
-        // ----------------------------------------------------
-        // CASH IS THE DEFAULT RECEIVING ACCOUNT
-        // ----------------------------------------------------
+        setAccountId(
+          accountList[0]?.id ??
+          ""
+        );
 
-        const cashAccount =
-          accountList.find(
-            (account) =>
-              account.account_type
-                ?.toLowerCase() ===
-                "cash" ||
-              account.name
-                .toLowerCase()
-                .includes("cash")
-          );
+        setLoading(
+          false
+        );
 
-        if (cashAccount) {
-          setAccountId(
-            cashAccount.id
-          );
-        } else {
-          setAccountId("");
-        }
-
-        setLoading(false);
       } catch (
         loadError
       ) {
+
         console.error(
           loadError
         );
 
         if (active) {
+
           setError(
             loadError instanceof
               Error
@@ -470,7 +365,9 @@ export default function AddIncomePage() {
               : "Unable to load the income form."
           );
 
-          setLoading(false);
+          setLoading(
+            false
+          );
         }
       }
     }
@@ -480,7 +377,10 @@ export default function AddIncomePage() {
     return () => {
       active = false;
     };
-  }, [router]);
+
+  }, [
+    router,
+  ]);
 
   // ==========================================================
   // SELECTED VALUES
@@ -613,68 +513,60 @@ export default function AddIncomePage() {
 
       setSaving(true);
 
-      const noteParts = [
-        reference.trim()
-          ? `Reference: ${reference.trim()}`
-          : "",
+      const response =
+        await fetch(
+          "/api/local/income",
+          {
+            method:
+              "POST",
 
-        note.trim()
-          ? note.trim()
-          : "",
-      ].filter(Boolean);
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-      const {
-        error:
-          insertError,
-      } = await supabase
-        .from("transactions")
-        .insert({
-          business_id:
-            businessId,
+            body:
+              JSON.stringify({
+                date_received:
+                  dateReceived,
 
-          transaction_number:
-            createIncomeNumber(),
+                category_id:
+                  selectedIncomeSource.id,
 
-          transaction_date:
-            `${dateReceived}T12:00:00`,
+                description:
+                  description.trim(),
 
-          transaction_type:
-            "income",
+                amount:
+                  numericAmount,
 
-          category_id:
-            selectedIncomeSource.id,
+                account_id:
+                  selectedAccount.id,
 
-          description:
-            description.trim(),
+                reference:
+                  reference.trim() ||
+                  null,
 
-          amount:
-            numericAmount,
+                note:
+                  note.trim() ||
+                  null,
+              }),
+          }
+        );
 
-          account_id:
-            selectedAccount.id,
-
-          payment_method:
-            selectedAccount.name,
-
-          reference_type:
-            "manual_income",
-
-          notes:
-            noteParts.length > 0
-              ? noteParts.join(
-                  " · "
-                )
-              : null,
-
-          created_by:
-            userId,
-        });
+      const data =
+        (await response.json()) as {
+          success?: boolean;
+          error?: string;
+        };
 
       if (
-        insertError
+        !response.ok ||
+        !data.success
       ) {
+
         throw new Error(
-          insertError.message
+          data.error ||
+            "Unable to save income."
         );
       }
 
@@ -938,20 +830,28 @@ export default function AddIncomePage() {
                   </span>
 
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
-                    min="0.01"
-                    step="0.01"
                     value={
                       amount
                     }
                     onChange={(
                       event
-                    ) =>
-                      setAmount(
-                        event.target.value
-                      )
-                    }
+                    ) => {
+                      const value =
+                        event.target.value;
+
+                      if (
+                        /^\d*(\.\d{0,2})?$/.test(
+                          value
+                        )
+                      ) {
+                        setAmount(
+                          value
+                        );
+                      }
+                    }}
                     placeholder="0.00"
                     className="w-full rounded-xl border border-slate-300 bg-[#f8faf9] py-3.5 pl-16 pr-4 text-[17px] font-bold text-slate-950 outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                   />

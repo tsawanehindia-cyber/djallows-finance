@@ -35,12 +35,10 @@ import {
 } from "recharts";
 
 import FinancePageShell from "@/components/FinancePageShell";
-import { supabase } from "@/lib/supabase";
 
-import {
-  getDashboardFinancialData,
-  type DashboardFinancialData,
-  type LedgerTransaction,
+import type {
+  DashboardFinancialData,
+  LedgerTransaction,
 } from "@/lib/dashboard";
 
 // ============================================================
@@ -144,6 +142,23 @@ type TobaskiSummary = {
   remaining: number;
   profit: number;
   roi: number;
+};
+
+type LocalDashboardResponse = {
+  success: boolean;
+  error?: string;
+  business: BusinessProfile;
+  memberRole: MemberRole;
+  financialData: DashboardFinancialData;
+  payrollSummary: PayrollDashboardSummary | null;
+  invoices: InvoiceRow[];
+  customers: CustomerRow[];
+  tobaskiSeasons: TobaskiSeason[];
+  tobaskiExpenses: TobaskiExpense[];
+  sheepSales: SheepSaleRow[];
+  tobaskiStock: TobaskiStockRow[];
+  stockAvailable: boolean;
+  historicalCustomerSales: HistoricalCustomerSale[];
 };
 
 // ============================================================
@@ -579,7 +594,7 @@ export default function Home() {
   ]);
 
   // ==========================================================
-  // LOAD DASHBOARD
+  // LOAD LOCAL DASHBOARD
   // ==========================================================
 
   useEffect(() => {
@@ -587,602 +602,65 @@ export default function Home() {
 
     async function loadDashboard() {
       try {
-        setLoading(
-          true
-        );
+        setLoading(true);
+        setError("");
 
-        setError(
-          ""
-        );
-
-        const {
-          data: {
-            session,
-          },
-          error:
-            sessionError,
-        } =
-          await supabase.auth.getSession();
-
-        if (
-          sessionError ||
-          !session
-        ) {
-          router.replace(
-            "/login"
+        const response =
+          await fetch(
+            "/api/local/dashboard",
+            {
+              cache: "no-store",
+            }
           );
 
+        if (response.status === 401) {
+          router.replace("/login");
           return;
         }
 
-        const {
-          data:
-            membership,
-          error:
-            membershipError,
-        } = await supabase
-          .from(
-            "business_members"
-          )
-          .select(
-            "business_id, role"
-          )
-          .eq(
-            "user_id",
-            session.user.id
-          )
-          .limit(1)
-          .maybeSingle();
+        const data =
+          (await response.json()) as LocalDashboardResponse;
 
         if (
-          membershipError ||
-          !membership
+          !response.ok ||
+          !data.success
         ) {
-          router.replace(
-            "/login"
+          throw new Error(
+            data.error ||
+              "Unable to load local dashboard."
           );
+        }
 
+        if (!active) {
           return;
         }
 
-        const {
-          data:
-            profile,
-        } = await supabase
-          .from(
-            "user_profiles"
-          )
-          .select(
-            "platform_role"
-          )
-          .eq(
-            "id",
-            session.user.id
-          )
-          .maybeSingle();
-
-        const resolvedRole:
-          MemberRole =
-            profile?.platform_role ===
-            "super_admin"
-              ? "super_admin"
-              : (
-                  membership.role ??
-                  "staff"
-                ) as MemberRole;
-
-        const {
-          data:
-            businessData,
-          error:
-            businessError,
-        } = await supabase
-          .from(
-            "businesses"
-          )
-          .select(
-            `
-            id,
-            name,
-            trading_name
-          `
-          )
-          .eq(
-            "id",
-            membership.business_id
-          )
-          .single();
-
-        if (
-          businessError ||
-          !businessData
-        ) {
-          throw new Error(
-            businessError?.message ||
-              "Unable to load business."
-          );
-        }
-
-        const payrollPromise =
-          resolvedRole ===
-          "staff"
-            ? Promise.resolve({
-                data: null,
-                error: null,
-              })
-            : supabase
-                .rpc(
-                  "get_payroll_dashboard_summary",
-                  {
-                    p_business_id:
-                      businessData.id,
-                  }
-                )
-                .maybeSingle();
-
-        const [
-          moneyData,
-          payrollResult,
-          invoiceResult,
-          customerResult,
-          seasonResult,
-          tobaskiExpenseResult,
-          sheepSaleResult,
-          stockResult,
-        ] =
-          await Promise.all([
-            getDashboardFinancialData(
-              businessData.id
-            ),
-
-            payrollPromise,
-
-            supabase
-              .from(
-                "invoices"
-              )
-              .select(
-                `
-                id,
-                customer_id,
-                invoice_number,
-                invoice_date,
-                total_amount,
-                amount_paid,
-                balance_due,
-                status,
-                tobaski_season_id
-              `
-              )
-              .eq(
-                "business_id",
-                businessData.id
-              )
-              .order(
-                "invoice_date",
-                {
-                  ascending:
-                    false,
-                }
-              ),
-
-            supabase
-              .from(
-                "contacts"
-              )
-              .select(
-                `
-                id,
-                name,
-                active
-              `
-              )
-              .eq(
-                "business_id",
-                businessData.id
-              )
-              .eq(
-                "contact_type",
-                "customer"
-              )
-              .order(
-                "name"
-              ),
-
-            supabase
-              .from(
-                "tobaski_seasons"
-              )
-              .select(
-                `
-                id,
-                season_name,
-                season_year,
-                active
-              `
-              )
-              .eq(
-                "business_id",
-                businessData.id
-              )
-              .order(
-                "season_year",
-                {
-                  ascending:
-                    false,
-                }
-              ),
-
-            supabase
-              .from(
-                "transactions"
-              )
-              .select(
-                `
-                id,
-                amount,
-                tobaski_season_id,
-                tobaski_quantity
-              `
-              )
-              .eq(
-                "business_id",
-                businessData.id
-              )
-              .eq(
-                "transaction_type",
-                "expense"
-              )
-              .not(
-                "tobaski_season_id",
-                "is",
-                null
-              ),
-
-            supabase
-              .from(
-                "sheep_sale_details"
-              )
-              .select(
-                `
-                id,
-                invoice_id,
-                tobaski_season_id
-              `
-              )
-              .eq(
-                "business_id",
-                businessData.id
-              )
-              .not(
-                "tobaski_season_id",
-                "is",
-                null
-              ),
-
-            supabase
-              .from(
-                "tobaski_sheep_position"
-              )
-              .select(
-                `
-                id,
-                tobaski_season_id,
-                stock_status
-              `
-              )
-              .eq(
-                "business_id",
-                businessData.id
-              ),
-          ]);
-
-        if (
-          invoiceResult.error
-        ) {
-          throw new Error(
-            `Unable to load invoices: ${invoiceResult.error.message}`
-          );
-        }
-
-        if (
-          customerResult.error
-        ) {
-          throw new Error(
-            `Unable to load customers: ${customerResult.error.message}`
-          );
-        }
-
-        if (
-          seasonResult.error
-        ) {
-          throw new Error(
-            `Unable to load Tobaski seasons: ${seasonResult.error.message}`
-          );
-        }
-
-        if (
-          tobaskiExpenseResult.error
-        ) {
-          throw new Error(
-            `Unable to load Tobaski expenses: ${tobaskiExpenseResult.error.message}`
-          );
-        }
-
-        if (
-          sheepSaleResult.error
-        ) {
-          throw new Error(
-            `Unable to load sheep sales: ${sheepSaleResult.error.message}`
-          );
-        }
-
-        let loadedPayroll:
-          PayrollDashboardSummary | null =
-          null;
-
-        if (
-          !payrollResult.error &&
-          payrollResult.data
-        ) {
-          loadedPayroll = {
-            active_employees:
-              Number(
-                (payrollResult.data as unknown as PayrollDashboardSummary).active_employees ??
-                  0
-              ),
-
-            paid_this_month:
-              Number(
-                (payrollResult.data as unknown as PayrollDashboardSummary).paid_this_month ??
-                  0
-              ),
-
-            payments_this_month:
-              Number(
-                (payrollResult.data as unknown as PayrollDashboardSummary).payments_this_month ??
-                  0
-              ),
-          };
-        }
-        else if (
-          payrollResult.error &&
-          resolvedRole !==
-            "staff"
-        ) {
-          console.warn(
-            "Payroll summary is not available:",
-            payrollResult.error.message
-          );
-        }
-
-        let loadedStock:
-          TobaskiStockRow[] =
-          [];
-
-        let hasStock =
-          false;
-
-        if (
-          !stockResult.error
-        ) {
-          hasStock =
-            true;
-
-          loadedStock =
-            (
-              stockResult.data ??
-              []
-            ).map(
-              (row) => ({
-                id:
-                  row.id,
-
-                tobaski_season_id:
-                  row.tobaski_season_id,
-
-                stock_status:
-                  row.stock_status ??
-                  "Remaining",
-              })
-            );
-        }
-        else {
-          console.warn(
-            "Individual Tobaski stock is not available:",
-            stockResult.error.message
-          );
-        }
-
-        if (
-          !active
-        ) {
-          return;
-        }
-
-        setBusiness(
-          businessData as BusinessProfile
+        setBusiness(data.business);
+        setFinancialData(data.financialData);
+        setInvoices(data.invoices ?? []);
+        setCustomers(data.customers ?? []);
+        setTobaskiSeasons(data.tobaskiSeasons ?? []);
+        setTobaskiExpenses(data.tobaskiExpenses ?? []);
+        setSheepSales(data.sheepSales ?? []);
+        setTobaskiStock(data.tobaskiStock ?? []);
+        setStockAvailable(data.stockAvailable ?? true);
+        setHistoricalCustomerSales(
+          data.historicalCustomerSales ?? []
         );
+        setMemberRole(data.memberRole);
+        setPayrollSummary(data.payrollSummary);
+        setLoading(false);
+      } catch (loadError) {
+        console.error(loadError);
 
-        setFinancialData(
-          moneyData
-        );
-
-        setInvoices(
-          (
-            invoiceResult.data ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              customer_id:
-                row.customer_id,
-
-              invoice_number:
-                row.invoice_number,
-
-              invoice_date:
-                row.invoice_date,
-
-              total_amount:
-                Number(
-                  row.total_amount ??
-                    0
-                ),
-
-              amount_paid:
-                Number(
-                  row.amount_paid ??
-                    0
-                ),
-
-              balance_due:
-                Number(
-                  row.balance_due ??
-                    0
-                ),
-
-              status:
-                row.status ??
-                "unpaid",
-
-              tobaski_season_id:
-                row.tobaski_season_id,
-            })
-          )
-        );
-
-        setCustomers(
-          (
-            customerResult.data ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              name:
-                row.name,
-
-              active:
-                row.active ??
-                true,
-            })
-          )
-        );
-
-        setTobaskiSeasons(
-          (
-            seasonResult.data ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              season_name:
-                row.season_name,
-
-              season_year:
-                Number(
-                  row.season_year
-                ),
-
-              active:
-                row.active ??
-                true,
-            })
-          )
-        );
-
-        setTobaskiExpenses(
-          (
-            tobaskiExpenseResult.data ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              amount:
-                Number(
-                  row.amount ??
-                    0
-                ),
-
-              tobaski_season_id:
-                row.tobaski_season_id,
-
-              tobaski_quantity:
-                row.tobaski_quantity ===
-                null
-                  ? null
-                  : Number(
-                      row.tobaski_quantity
-                    ),
-            })
-          )
-        );
-
-        setSheepSales(
-          (
-            sheepSaleResult.data ??
-            []
-          ).map(
-            (row) => ({
-              id:
-                row.id,
-
-              invoice_id:
-                row.invoice_id,
-
-              tobaski_season_id:
-                row.tobaski_season_id,
-            })
-          )
-        );
-
-        setTobaskiStock(
-          loadedStock
-        );
-
-        setStockAvailable(
-          hasStock
-        );
-
-        setMemberRole(
-          resolvedRole
-        );
-
-        setPayrollSummary(
-          loadedPayroll
-        );
-
-        setLoading(
-          false
-        );
-      } catch (
-        loadError
-      ) {
-        console.error(
-          loadError
-        );
-
-        if (
-          active
-        ) {
+        if (active) {
           setError(
-            loadError instanceof
-              Error
+            loadError instanceof Error
               ? loadError.message
               : "Unable to load dashboard."
           );
 
-          setLoading(
-            false
-          );
+          setLoading(false);
         }
       }
     }
@@ -1192,116 +670,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [
-    router,
-  ]);
-
-  // ==========================================================
-  // HISTORICAL CUSTOMER SALES
-  //
-  // Historical sheep sales imported from the workbook were
-  // entered directly into the financial ledger, not recreated
-  // as old invoices. Load those customer-linked sales here so
-  // customer reporting remains complete without double counting
-  // normal invoices.
-  // ==========================================================
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadHistoricalCustomerSales() {
-      if (!business) {
-        return;
-      }
-
-      const {
-        data,
-        error:
-          historicalSalesError,
-      } =
-        await supabase
-          .from(
-            "transactions"
-          )
-          .select(
-            `
-            id,
-            contact_id,
-            transaction_date,
-            amount
-          `
-          )
-          .eq(
-            "business_id",
-            business.id
-          )
-          .eq(
-            "transaction_type",
-            "income"
-          )
-          .eq(
-            "reference_type",
-            "historical_excel_import"
-          )
-          .not(
-            "contact_id",
-            "is",
-            null
-          )
-          .order(
-            "transaction_date",
-            {
-              ascending: false,
-            }
-          );
-
-      if (
-        historicalSalesError
-      ) {
-        console.warn(
-          "Historical customer sales are not available:",
-          historicalSalesError.message
-        );
-
-        return;
-      }
-
-      if (!active) {
-        return;
-      }
-
-      setHistoricalCustomerSales(
-        (
-          data ?? []
-        ).map(
-          (row) => ({
-            id:
-              row.id,
-
-            contact_id:
-              row.contact_id,
-
-            transaction_date:
-              row.transaction_date,
-
-            amount:
-              Number(
-                row.amount ??
-                  0
-              ),
-          })
-        )
-      );
-    }
-
-    loadHistoricalCustomerSales();
-
-    return () => {
-      active = false;
-    };
-  }, [
-    business,
-  ]);
+  }, [router]);
 
   // ==========================================================
   // TRANSACTIONS AND PERIOD
@@ -2306,7 +1675,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <DashboardMetricCard
           title="Total Income"
           amount={
@@ -2597,7 +1966,7 @@ function DashboardMetricCard({
           </p>
 
           <p
-            className={`mt-1.5 whitespace-nowrap text-[18px] font-black leading-tight tracking-tight sm:text-[20px] xl:text-[21px] ${
+            className={`mt-1.5 whitespace-nowrap text-[18px] font-black leading-tight tracking-tight sm:text-[20px] ${
               featured
                 ? "text-white"
                 : "text-slate-950"
@@ -2772,18 +2141,20 @@ function DonutBreakdownCard({
                     key={
                       row.name
                     }
-                    className="flex items-center gap-3"
+                    className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-start gap-x-3"
                   >
+
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      className="mt-1.5 h-2.5 w-2.5 rounded-full"
                       style={{
                         backgroundColor:
                           row.color,
                       }}
                     />
 
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-bold text-slate-800">
+                    <div className="min-w-0">
+
+                      <p className="truncate text-[14px] font-bold leading-5 text-slate-800">
                         {row.name}
                       </p>
 
@@ -2793,13 +2164,15 @@ function DonutBreakdownCard({
                         )}
                         %
                       </p>
+
                     </div>
 
-                    <p className="whitespace-nowrap text-[13px] font-black text-slate-950">
+                    <p className="min-w-[110px] whitespace-nowrap text-right text-[13px] font-black leading-5 text-slate-950">
                       {money(
                         row.value
                       )}
                     </p>
+
                   </div>
                 );
               }
@@ -3061,11 +2434,7 @@ function RecentTransactionsCard({
                       )}
                     </p>
 
-                    <p className="mt-0.5 text-[8px] font-medium text-slate-400">
-                      {
-                        transaction.transaction_number
-                      }
-                    </p>
+
                   </div>
                 </div>
               );

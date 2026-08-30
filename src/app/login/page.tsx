@@ -14,9 +14,6 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
-
-import { supabase } from "@/lib/supabase";
-
 type LoginResponse = {
   success?: boolean;
   error?: string;
@@ -93,7 +90,7 @@ export default function LoginPage() {
     try {
       const response =
         await fetch(
-          "/api/auth/login",
+          "/api/local/auth/login",
           {
             method: "POST",
 
@@ -127,60 +124,10 @@ export default function LoginPage() {
         return;
       }
 
-      const accessToken =
-        data.access_token ??
-        data.session
-          ?.access_token;
 
-      const refreshToken =
-        data.refresh_token ??
-        data.session
-          ?.refresh_token;
-
-      if (
-        !accessToken ||
-        !refreshToken
-      ) {
-        setError(
-          "Unable to start your login session."
-        );
-
-        return;
-      }
-
-      const {
-        error:
-          sessionError,
-      } =
-        await supabase.auth
-          .setSession({
-            access_token:
-              accessToken,
-
-            refresh_token:
-              refreshToken,
-          });
-
-      if (sessionError) {
-        setError(
-          sessionError.message
-        );
-
-        return;
-      }
-
-      if (
-        data.must_change_password ===
-        true
-      ) {
-        router.replace(
-          "/change-password"
-        );
-      } else {
-        router.replace(
-          "/"
-        );
-      }
+      router.replace(
+        "/"
+      );
 
       router.refresh();
     } catch (

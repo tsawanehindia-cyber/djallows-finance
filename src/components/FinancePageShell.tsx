@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -33,7 +33,6 @@ import {
   X,
 } from "lucide-react";
 
-import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // TYPES
@@ -62,18 +61,6 @@ type MemberRole =
   | "staff"
   | "viewer"
   | null;
-
-type UserProfile = {
-  username: string | null;
-  full_name: string | null;
-  platform_role: string | null;
-  is_active: boolean | null;
-};
-
-type BusinessAccess = {
-  access_role: string | null;
-  active: boolean | null;
-};
 
 // ============================================================
 // NAVIGATION
@@ -367,7 +354,7 @@ export default function FinancePageShell({
   }, []);
 
   // ==========================================================
-  // CURRENT USER
+  // CURRENT LOCAL USER
   // ==========================================================
 
   useEffect(() => {
@@ -375,294 +362,99 @@ export default function FinancePageShell({
 
     async function loadCurrentUser() {
       try {
-        const {
-          data: {
-            session,
-          },
-          error:
-            sessionError,
-        } =
-          await supabase.auth.getSession();
-
-        if (
-          sessionError ||
-          !session
-        ) {
-          router.replace(
-            "/login"
+        const response =
+          await fetch(
+            "/api/local/auth/session",
+            {
+              cache: "no-store",
+            }
           );
 
+        if (!response.ok) {
+          router.replace("/login");
           return;
         }
 
-        const {
-          data:
-            profileData,
-          error:
-            profileError,
-        } =
-          await supabase
-            .from(
-              "user_profiles"
-            )
-            .select(
-              `
-              username,
-              full_name,
-              platform_role,
-              is_active
-            `
-            )
-            .eq(
-              "id",
-              session.user.id
-            )
-            .maybeSingle();
+        const data =
+          (await response.json()) as {
+            success?: boolean;
+            profile?: {
+              username?: string | null;
+              full_name?: string | null;
+              platform_role?: string | null;
+              is_active?: boolean;
+            };
+            business_access?: {
+              access_role?: string | null;
+              active?: boolean;
+            };
+          };
 
         if (
-          profileError
+          !data.success ||
+          !data.profile ||
+          data.profile.is_active === false ||
+          data.business_access?.active === false
         ) {
-          console.error(
-            "Unable to load user profile:",
-            profileError
-          );
-        }
-
-        const profile =
-          profileData as
-            | UserProfile
-            | null;
-
-        if (
-          profile?.is_active ===
-          false
-        ) {
-          await supabase.auth.signOut();
-
-          router.replace(
-            "/login"
+          await fetch(
+            "/api/local/auth/logout",
+            { method: "POST" }
           );
 
+          router.replace("/login");
           return;
         }
-
-        const fallbackUsername =
-          session.user
-            .user_metadata
-            ?.username ||
-          session.user.email
-            ?.split("@")[0] ||
-          "User";
 
         const fullName =
-          profile?.full_name
-            ?.trim() ||
-          profile?.username
-            ?.trim() ||
-          fallbackUsername;
+          data.profile.full_name?.trim() ||
+          data.profile.username?.trim() ||
+          "User";
 
-        // ======================================================
-        // SUPER ADMIN
-        // ======================================================
+        let resolvedRole: MemberRole = "staff";
 
         if (
-          profile?.platform_role ===
+          data.profile.platform_role ===
           "super_admin"
         ) {
-          if (
-            !active
-          ) {
-            return;
-          }
+          resolvedRole = "owner";
+        } else if (
+          data.business_access?.access_role ===
+          "owner"
+        ) {
+          resolvedRole = "owner";
+        } else if (
+          data.business_access?.access_role ===
+          "admin"
+        ) {
+          resolvedRole = "admin";
+        } else if (
+          data.business_access?.access_role ===
+          "viewer"
+        ) {
+          resolvedRole = "viewer";
+        }
 
-          setLoginFullName(
-            fullName
-          );
-
-          setLoginRole(
-            "Super Admin"
-          );
-
-          setMemberRole(
-            "owner"
-          );
-
-          setAccessChecked(
-            true
-          );
-
+        if (!active) {
           return;
         }
 
-        // ======================================================
-        // FARM MEMBER
-        // ======================================================
-
-        const {
-          data:
-            membership,
-          error:
-            membershipError,
-        } =
-          await supabase
-            .from(
-              "business_members"
-            )
-            .select(
-              `
-              business_id,
-              role
-            `
-            )
-            .eq(
-              "user_id",
-              session.user.id
-            )
-            .limit(1)
-            .maybeSingle();
-
-        if (
-          membershipError ||
-          !membership
-        ) {
-          console.error(
-            "Unable to load business membership:",
-            membershipError
-          );
-
-          await supabase.auth.signOut();
-
-          router.replace(
-            "/login"
-          );
-
-          return;
-        }
-
-        const {
-          data:
-            accessData,
-          error:
-            accessError,
-        } =
-          await supabase
-            .from(
-              "business_user_access"
-            )
-            .select(
-              `
-              access_role,
-              active
-            `
-            )
-            .eq(
-              "business_id",
-              membership.business_id
-            )
-            .eq(
-              "user_id",
-              session.user.id
-            )
-            .maybeSingle();
-
-        if (
-          accessError
-        ) {
-          console.error(
-            "Unable to load business access:",
-            accessError
-          );
-        }
-
-        const access =
-          accessData as
-            | BusinessAccess
-            | null;
-
-        if (
-          access &&
-          access.active ===
-          false
-        ) {
-          await supabase.auth.signOut();
-
-          router.replace(
-            "/login"
-          );
-
-          return;
-        }
-
-        const rawRole =
-          access?.access_role ||
-          membership.role ||
-          "staff";
-
-        let resolvedRole:
-          MemberRole =
-            "staff";
-
-        if (
-          rawRole === "owner"
-        ) {
-          resolvedRole =
-            "owner";
-        }
-        else if (
-          rawRole === "admin"
-        ) {
-          resolvedRole =
-            "admin";
-        }
-        else if (
-          rawRole === "viewer"
-        ) {
-          resolvedRole =
-            "viewer";
-        }
-        else {
-          resolvedRole =
-            "staff";
-        }
-
-        if (
-          !active
-        ) {
-          return;
-        }
-
-        setLoginFullName(
-          fullName
-        );
-
+        setLoginFullName(fullName);
         setLoginRole(
           getRoleLabel(
             resolvedRole,
-            profile?.platform_role
+            data.profile.platform_role
           )
         );
-
-        setMemberRole(
-          resolvedRole
-        );
-
-        setAccessChecked(
-          true
-        );
-      } catch (
-        loadError
-      ) {
+        setMemberRole(resolvedRole);
+        setAccessChecked(true);
+      } catch (loadError) {
         console.error(
-          "Unable to load current user:",
+          "Unable to load current local user:",
           loadError
         );
 
-        if (
-          active
-        ) {
-          setAccessChecked(
-            true
-          );
+        if (active) {
+          router.replace("/login");
         }
       }
     }
@@ -672,9 +464,7 @@ export default function FinancePageShell({
     return () => {
       active = false;
     };
-  }, [
-    router,
-  ]);
+  }, [router]);
 
   // ==========================================================
   // PERMISSIONS
@@ -769,7 +559,12 @@ export default function FinancePageShell({
   // ==========================================================
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    await fetch(
+      "/api/local/auth/logout",
+      {
+        method: "POST",
+      }
+    );
 
     router.replace(
       "/login"

@@ -1,4 +1,5 @@
-﻿const {
+/* eslint-disable @typescript-eslint/no-require-imports */
+const {
   app,
   BrowserWindow,
 } = require("electron");
